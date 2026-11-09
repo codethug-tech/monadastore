@@ -1,0 +1,32 @@
+{
+  "name": "monada-store",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "tsx tests/cart.test.ts && tsx tests/order.test.ts && tsx tests/image.test.ts && tsx tests/phone.test.ts && tsx tests/checkout.test.ts",
+    "verify:schema": "node scripts/verify-schema.mjs",
+    "verify:supabase": "node scripts/verify-supabase.mjs",
+    "verify:security": "node scripts/verify-security.mjs",
+    "verify": "npm run verify:schema && npm run verify:supabase && npm run verify:security"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tsx": "^4.23.15",
+    "typescript": "^5.5.3",
+    "vite": "^6.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}

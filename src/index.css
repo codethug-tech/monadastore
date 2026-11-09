@@ -1,0 +1,103 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Common Palette */
+  --monada-sage: #758A77;
+  --monada-sage-light: #8E9F90;
+  --monada-sage-soft: #EBF0EC;
+  --monada-terracotta: #9B6F5A;
+  --monada-terracotta-soft: #F6EEEA;
+  --monada-danger: #D64545;
+  --whatsapp-green: #25D366;
+
+  /* Typography */
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Theme Defaults (Light) */
+  --theme-bg: #FAF8F5;
+  --theme-surface: #FFFFFF;
+  --theme-surface-soft: #F1ECE5;
+  --theme-surface-subtle: #F6F3EE;
+  --theme-ink: #171717;
+  --theme-ink-secondary: #52525B;
+  --theme-muted: #7E7E84;
+  --theme-line: #E7E3DC;
+  --theme-card-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+  --theme-card-shadow-hover: 0 16px 36px rgba(0, 0, 0, 0.09);
+  --logo-filter: none;
+}
+
+[data-theme="dark"] {
+  --theme-bg: #121212;
+  --theme-surface: #1C1C1E;
+  --theme-surface-soft: #28282B;
+  --theme-surface-subtle: #222225;
+  --theme-ink: #F7F7F8;
+  --theme-ink-secondary: #D4D4D8;
+  --theme-muted: #9CA3AF;
+  --theme-line: #2E2E32;
+  --monada-sage-soft: #202E24;
+  --monada-terracotta-soft: #38241D;
+  --theme-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --theme-card-shadow-hover: 0 16px 38px rgba(0, 0, 0, 0.6);
+  --logo-filter: brightness(0) invert(1);
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--theme-bg);
+  color: var(--theme-ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(117, 138, 119, 0.35);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(117, 138, 119, 0.6);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
