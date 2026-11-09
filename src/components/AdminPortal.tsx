@@ -97,6 +97,50 @@ export default function AdminPortal({
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
 
+  // Inline Supabase setup, shown only when the build has no credentials.
+  // Without this the login screen is a dead end: it tells you to configure
+  // Supabase in a tab that is itself behind the login.
+  const [setupUrl, setSetupUrl] = useState('');
+  const [setupKey, setSetupKey] = useState('');
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [setupError, setSetupError] = useState('');
+
+  const handleConnectSupabase = async () => {
+    const url = setupUrl.trim();
+    const key = setupKey.trim();
+
+    if (!/^https?:\/\//i.test(url)) {
+      setSetupError(isEs ? 'La URL debe empezar con https://' : 'The URL must start with https://');
+      return;
+    }
+    if (!key) {
+      setSetupError(isEs ? 'Pega la clave anon (public).' : 'Paste the anon (public) key.');
+      return;
+    }
+
+    setSetupBusy(true);
+    setSetupError('');
+
+    // Store first, then prove the credentials actually work before trusting them.
+    localStorage.setItem('monada_supabase_url', url);
+    localStorage.setItem('monada_supabase_key', key);
+    resetSupabaseClient();
+
+    const result = await testConnection();
+    setSetupBusy(false);
+
+    if (!result.ok) {
+      localStorage.removeItem('monada_supabase_url');
+      localStorage.removeItem('monada_supabase_key');
+      resetSupabaseClient();
+      setSetupError(result.message);
+      return;
+    }
+
+    // Credentials work. Reload so the whole app picks up the new client.
+    window.location.reload();
+  };
+
   // Restore an existing session on mount so a reload does not force a re-login.
   useEffect(() => {
     let cancelled = false;
@@ -573,17 +617,88 @@ export default function AdminPortal({
               )}
 
               {!authAvailable && (
-                <div style={{
-                  fontSize: 12,
-                  color: '#B45309',
-                  padding: '10px 12px',
-                  background: 'rgba(245, 158, 11, 0.12)',
-                  borderRadius: 8,
-                  lineHeight: 1.5,
-                }}>
-                  {isEs
-                    ? 'Supabase no está configurado. Sin conexión no es posible un acceso seguro. Configúralo en la pestaña Supabase & SQL.'
-                    : 'Supabase is not configured. Secure sign-in requires it. Set it up in the Supabase & SQL tab.'}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{
+                    fontSize: 12,
+                    color: '#B45309',
+                    padding: '10px 12px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    borderRadius: 8,
+                    lineHeight: 1.5,
+                  }}>
+                    {isEs
+                      ? 'Supabase no está conectado en este navegador. Pega tus credenciales aquí para activar el acceso. (En producción lo correcto es configurarlas en Vercel para que todos los visitantes las reciban.)'
+                      : 'Supabase is not connected in this browser. Paste your credentials here to enable sign-in. (In production, set them in Vercel so every visitor gets them.)'}
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 11, color: 'var(--theme-muted)', display: 'block', marginBottom: 4 }}>
+                      SUPABASE PROJECT URL
+                    </label>
+                    <input
+                      type="url"
+                      value={setupUrl}
+                      onChange={e => setSetupUrl(e.target.value)}
+                      placeholder="https://xxxx.supabase.co"
+                      style={{
+                        width: '100%',
+                        padding: '9px 12px',
+                        borderRadius: 9,
+                        border: '1px solid var(--theme-line)',
+                        background: 'var(--theme-bg)',
+                        color: 'var(--theme-ink)',
+                        fontSize: 12,
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 11, color: 'var(--theme-muted)', display: 'block', marginBottom: 4 }}>
+                      SUPABASE ANON (PUBLIC) KEY
+                    </label>
+                    <input
+                      type="password"
+                      value={setupKey}
+                      onChange={e => setSetupKey(e.target.value)}
+                      placeholder="sb_publishable_... or eyJhbGci..."
+                      style={{
+                        width: '100%',
+                        padding: '9px 12px',
+                        borderRadius: 9,
+                        border: '1px solid var(--theme-line)',
+                        background: 'var(--theme-bg)',
+                        color: 'var(--theme-ink)',
+                        fontSize: 12,
+                      }}
+                    />
+                  </div>
+
+                  {setupError && (
+                    <div style={{ fontSize: 11, color: 'var(--monada-danger)', fontWeight: 600 }}>
+                      {setupError}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleConnectSupabase}
+                    disabled={setupBusy}
+                    style={{
+                      height: 40,
+                      borderRadius: 10,
+                      background: 'var(--theme-surface-soft)',
+                      color: 'var(--theme-ink)',
+                      border: '1px solid var(--theme-line)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: setupBusy ? 'wait' : 'pointer',
+                      opacity: setupBusy ? 0.6 : 1,
+                    }}
+                  >
+                    {setupBusy
+                      ? (isEs ? 'Conectando...' : 'Connecting...')
+                      : (isEs ? 'Conectar Supabase' : 'Connect Supabase')}
+                  </button>
                 </div>
               )}
 
