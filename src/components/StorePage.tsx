@@ -2,6 +2,12 @@ import { useState, useMemo } from 'react';
 import { ClothingProduct } from '../types';
 import { Language, translations } from '../i18n/translations';
 import { StoreConfig } from '../config/storeConfig';
+import {
+  CATEGORIES,
+  CATEGORY_GROUPS,
+  categoryLabel,
+  isKnownCategory,
+} from '../config/categories';
 import { buildWaLink, isWhatsAppConfigured } from '../lib/phone';
 import { useIsMobile } from '../lib/useIsMobile';
 import {
@@ -52,9 +58,11 @@ export default function StorePage({
 
   const categories = [
     { key: 'all', label: t.allCurations },
-    { key: 'Trending Now', label: t.trendingNow },
-    { key: 'Fresh Drops', label: t.freshDrops },
-    { key: 'Street Edit', label: t.streetEdit },
+    ...CATEGORIES.map(c => ({
+      key: c.slug,
+      label: lang === 'es' ? c.es : c.en,
+      group: c.group,
+    })),
   ];
 
   const [selectedCategory, setSelectedCategory] = useState(0);
@@ -62,13 +70,47 @@ export default function StorePage({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc' | 'rating'>('default');
 
+  // Only offer a category pill when something is actually in it, so the
+  // storefront never shows an empty section.
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of products) {
+      for (const c of p.categories ?? []) {
+        counts[c] = (counts[c] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [products]);
+
+  // Products whose categories are all unknown (legacy tags, or none at all)
+  // would otherwise be invisible. Surface them under "Sin categoría".
+  const uncategorisedCount = useMemo(
+    () =>
+      products.filter(p => !(p.categories ?? []).some(c => isKnownCategory(c))).length,
+    [products]
+  );
+
+  const visibleCategories = useMemo(() => {
+    const base = categories.filter(c => c.key === 'all' || (categoryCounts[c.key] ?? 0) > 0);
+    if (uncategorisedCount > 0) {
+      base.push({
+        key: '__uncategorised__',
+        label: lang === 'es' ? 'Sin categoría' : 'Uncategorised',
+        group: undefined as never,
+      });
+    }
+    return base;
+  }, [categories, categoryCounts, uncategorisedCount, lang]);
+
   const filteredProducts = useMemo(() => {
     let result = products;
 
     // Filter by category
     const cat = categories[selectedCategory];
-    if (cat.key !== 'all') {
-      result = result.filter(p => p.categories.includes(cat.key));
+    if (cat && cat.key === '__uncategorised__') {
+      result = result.filter(p => !(p.categories ?? []).some(c => isKnownCategory(c)));
+    } else if (cat && cat.key !== 'all') {
+      result = result.filter(p => (p.categories ?? []).includes(cat.key));
     }
 
     // Filter by search query
@@ -77,7 +119,9 @@ export default function StorePage({
       result = result.filter(p =>
         p.name.toLowerCase().includes(q) ||
         p.series.toLowerCase().includes(q) ||
-        p.categories.some(c => c.toLowerCase().includes(q))
+        (p.categories ?? []).some(c =>
+          c.toLowerCase().includes(q) || categoryLabel(c, lang).toLowerCase().includes(q)
+        )
       );
     }
 
@@ -91,7 +135,7 @@ export default function StorePage({
     }
 
     return result;
-  }, [products, selectedCategory, searchQuery, sortBy]);
+  }, [products, categories, selectedCategory, searchQuery, sortBy, lang]);
 
   return (
     <div style={{
@@ -480,8 +524,16 @@ export default function StorePage({
           padding: '20px 0 6px',
           scrollbarWidth: 'none',
         }}>
-          {categories.map((cat, i) => {
+          {visibleCategories.map(cat => {
+            // Index into the full list so selection survives filtering
+            const i = categories.findIndex(c => c.key === cat.key);
             const isSelected = selectedCategory === i;
+            const count =
+              cat.key === 'all'
+                ? products.length
+                : cat.key === '__uncategorised__'
+                  ? uncategorisedCount
+                  : categoryCounts[cat.key] ?? 0;
             return (
               <button
                 key={cat.key}
@@ -498,9 +550,24 @@ export default function StorePage({
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   boxShadow: isSelected ? '0 4px 14px rgba(0,0,0,0.15)' : 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
                 }}
               >
-                {cat.label}
+                <span>{cat.label}</span>
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: '1px 6px',
+                  borderRadius: 20,
+                  background: isSelected ? 'rgba(255,255,255,0.18)' : 'var(--theme-surface-soft)',
+                  color: isSelected ? 'var(--theme-bg)' : 'var(--theme-muted)',
+                  minWidth: 16,
+                  textAlign: 'center',
+                }}>
+                  {count}
+                </span>
               </button>
             );
           })}
@@ -839,7 +906,7 @@ function ProductCard({
           letterSpacing: 0.5,
           textTransform: 'uppercase',
         }}>
-          {product.categories[0]}
+          {categoryLabel(product.categories[0], lang)}
         </span>
 
         {/* Favorite Heart Button */}

@@ -40,6 +40,7 @@ import {
 } from './Icons';
 import ImageUploader from './ImageUploader';
 import { normalizeWhatsApp } from '../lib/phone';
+import { CATEGORIES, CATEGORY_GROUPS, categoryLabel } from '../config/categories';
 import {
   getAdminSession,
   signInAdmin,
@@ -157,7 +158,7 @@ export default function AdminPortal({
   const [newSeries, setNewSeries] = useState('New Season');
   const [newPrice, setNewPrice] = useState('75.00');
   const [newSizes, setNewSizes] = useState('S, M, L, XL');
-  const [newCategory, setNewCategory] = useState('Trending Now');
+  const [newCategories, setNewCategories] = useState<string[]>(['pijamas']);
   const [newImageUrl, setNewImageUrl] = useState('');
   const [newGallery, setNewGallery] = useState<string[]>([]);
   const [newDescription, setNewDescription] = useState('');
@@ -338,7 +339,7 @@ export default function AdminPortal({
       description: newDescription.trim() || (isEs ? 'Prenda confeccionada con textiles seleccionados de corte contemporáneo.' : 'Tailored contemporary garment crafted from premium textiles.'),
       imageUrl: defaultImg,
       gallery: galleryImgs,
-      categories: [newCategory],
+      categories: newCategories.length > 0 ? newCategories : ['pijamas'],
       isFavorite: false,
       rating: 5.0,
       reviewCount: 1,
@@ -349,6 +350,7 @@ export default function AdminPortal({
     setNewImageUrl('');
     setNewGallery([]);
     setNewDescription('');
+    setNewCategories(['pijamas']);
     setActiveTab('products');
   };
 
@@ -1491,6 +1493,48 @@ export default function AdminPortal({
                         />
                       </div>
 
+                      <div>
+                        <label style={{ fontSize: 11, color: 'var(--theme-muted)', display: 'block', marginBottom: 6 }}>
+                          {isEs ? 'Categorías' : 'Categories'}
+                        </label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {CATEGORIES.map(cat => {
+                            const on = editingProduct.categories.includes(cat.slug);
+                            return (
+                              <button
+                                key={cat.slug}
+                                type="button"
+                                onClick={() =>
+                                  setEditingProduct({
+                                    ...editingProduct,
+                                    categories: on
+                                      ? editingProduct.categories.filter(s => s !== cat.slug)
+                                      : [...editingProduct.categories, cat.slug],
+                                  })
+                                }
+                                style={{
+                                  padding: '6px 11px',
+                                  borderRadius: 18,
+                                  fontSize: 11,
+                                  fontWeight: on ? 600 : 500,
+                                  cursor: 'pointer',
+                                  border: `1px solid ${on ? 'var(--monada-sage)' : 'var(--theme-line)'}`,
+                                  background: on ? 'var(--monada-sage-soft)' : 'var(--theme-surface)',
+                                  color: on ? 'var(--monada-sage)' : 'var(--theme-muted)',
+                                }}
+                              >
+                                {isEs ? cat.es : cat.en}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {editingProduct.categories.length === 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--monada-danger)', marginTop: 6, fontWeight: 600 }}>
+                            {isEs ? 'Elige al menos una categoría.' : 'Pick at least one category.'}
+                          </div>
+                        )}
+                      </div>
+
                       <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                         <button
                           type="submit"
@@ -1711,25 +1755,56 @@ export default function AdminPortal({
 
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                        {isEs ? 'Categoría' : 'Category'}
+                        {isEs ? 'Categorías' : 'Categories'}
                       </label>
-                      <select
-                        value={newCategory}
-                        onChange={e => setNewCategory(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 14px',
-                          borderRadius: 10,
-                          border: '1px solid var(--theme-line)',
-                          background: 'var(--theme-bg)',
-                          color: 'var(--theme-ink)',
-                          fontSize: 13,
-                        }}
-                      >
-                        <option value="Trending Now">Trending Now</option>
-                        <option value="Fresh Drops">Fresh Drops</option>
-                        <option value="Street Edit">Street Edit</option>
-                      </select>
+                      <span style={{ fontSize: 11, color: 'var(--theme-muted)', display: 'block', marginBottom: 8, lineHeight: 1.5 }}>
+                        {isEs
+                          ? 'Elige todas las que apliquen. Una pijama de navidad puede ir en «Pijamas» y en «Pijamas de Navidad».'
+                          : 'Pick every one that applies. A Christmas pyjama can sit in both “Pajamas” and “Christmas Pajamas”.'}
+                      </span>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                        {CATEGORIES.map(cat => {
+                          const on = newCategories.includes(cat.slug);
+                          return (
+                            <button
+                              key={cat.slug}
+                              type="button"
+                              onClick={() =>
+                                setNewCategories(prev =>
+                                  prev.includes(cat.slug)
+                                    ? prev.filter(s => s !== cat.slug)
+                                    : [...prev, cat.slug]
+                                )
+                              }
+                              style={{
+                                padding: '7px 13px',
+                                borderRadius: 20,
+                                fontSize: 12,
+                                fontWeight: on ? 600 : 500,
+                                cursor: 'pointer',
+                                border: `1px solid ${on ? 'var(--monada-sage)' : 'var(--theme-line)'}`,
+                                background: on ? 'var(--monada-sage-soft)' : 'var(--theme-surface)',
+                                color: on ? 'var(--monada-sage)' : 'var(--theme-muted)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                              }}
+                            >
+                              {on && <IconCheck size={11} />}
+                              {isEs ? cat.es : cat.en}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {newCategories.length === 0 && (
+                        <div style={{ fontSize: 11, color: 'var(--monada-danger)', marginTop: 8, fontWeight: 600 }}>
+                          {isEs
+                            ? 'Elige al menos una categoría para que la prenda aparezca en el catálogo.'
+                            : 'Pick at least one category so the piece shows up in the catalog.'}
+                        </div>
+                      )}
                     </div>
                   </div>
 
