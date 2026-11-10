@@ -12,6 +12,7 @@ import { buildWaLink, isWhatsAppConfigured } from '../lib/phone';
 import { useIsMobile } from '../lib/useIsMobile';
 import {
   IconSearch,
+  IconCamera,
   IconSun,
   IconMoon,
   IconInstagram,
@@ -24,6 +25,8 @@ import {
 
 interface StorePageProps {
   products: ClothingProduct[];
+  /** True while the first catalog fetch is still in flight. */
+  loading?: boolean;
   cartCount: number;
   wishlistCount: number;
   lang: Language;
@@ -40,6 +43,7 @@ interface StorePageProps {
 
 export default function StorePage({
   products,
+  loading = false,
   cartCount,
   wishlistCount,
   lang,
@@ -582,7 +586,40 @@ export default function StorePage({
         padding: '10px 24px 80px',
         flex: 1,
       }}>
-        {filteredProducts.length === 0 ? (
+        {loading && products.length === 0 ? (
+          // Skeleton grid: never tell a customer "no products" while the
+          // catalog is still loading.
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: 22,
+          }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  background: 'var(--theme-surface)',
+                  borderRadius: 22,
+                  border: '1px solid var(--theme-line)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{
+                  width: '100%',
+                  aspectRatio: '3/4',
+                  background: 'var(--theme-surface-soft)',
+                  animation: 'pulse 1.4s ease-in-out infinite',
+                  animationDelay: `${i * 0.08}s`,
+                }} />
+                <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ height: 10, width: '40%', borderRadius: 4, background: 'var(--theme-surface-soft)' }} />
+                  <div style={{ height: 14, width: '75%', borderRadius: 4, background: 'var(--theme-surface-soft)' }} />
+                  <div style={{ height: 12, width: '30%', borderRadius: 4, background: 'var(--theme-surface-soft)' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '70px 20px',
@@ -853,9 +890,22 @@ function ProductCard({
     maximumFractionDigits: 2,
   });
 
+  const photoCount = (product.gallery ?? []).filter(Boolean).length;
+  const coverImage = product.imageUrl || product.gallery?.[0] || '';
+  const primaryCategory = (product.categories ?? []).find(c => isKnownCategory(c));
+
   return (
     <div
       onClick={onTap}
+      role="button"
+      tabIndex={0}
+      aria-label={product.name}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onTap();
+        }
+      }}
       style={{
         background: 'var(--theme-surface)',
         borderRadius: 22,
@@ -885,29 +935,67 @@ function ProductCard({
         overflow: 'hidden',
       }}>
         <img
-          src={product.imageUrl}
+          src={coverImage}
           alt={product.name}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           loading="lazy"
+          onError={e => {
+            // A dead image URL should not leave a broken-image icon in the grid.
+            const el = e.currentTarget;
+            el.style.display = 'none';
+            const parent = el.parentElement;
+            if (parent && !parent.querySelector('[data-img-fallback]')) {
+              const fb = document.createElement('div');
+              fb.setAttribute('data-img-fallback', '1');
+              fb.style.cssText =
+                'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--theme-muted);font-size:11px;';
+              fb.textContent = product.name;
+              parent.appendChild(fb);
+            }
+          }}
         />
 
+        {/* Photo count, so a multi-image product is obvious from the grid */}
+        {photoCount > 1 && (
+          <span style={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            background: 'rgba(23, 23, 23, 0.72)',
+            backdropFilter: 'blur(6px)',
+            padding: '3px 8px',
+            borderRadius: 20,
+            fontSize: 10,
+            fontWeight: 600,
+            color: '#FFFFFF',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+          }}>
+            <IconCamera size={10} />
+            {photoCount}
+          </span>
+        )}
+
         {/* Category Pill */}
-        <span style={{
-          position: 'absolute',
-          bottom: 12,
-          left: 12,
-          background: 'rgba(23, 23, 23, 0.75)',
-          backdropFilter: 'blur(6px)',
-          padding: '4px 10px',
-          borderRadius: 20,
-          fontSize: 10,
-          fontWeight: 600,
-          color: '#FFFFFF',
-          letterSpacing: 0.5,
-          textTransform: 'uppercase',
-        }}>
-          {categoryLabel(product.categories[0], lang)}
-        </span>
+        {primaryCategory && (
+          <span style={{
+            position: 'absolute',
+            bottom: 12,
+            left: 12,
+            background: 'rgba(23, 23, 23, 0.75)',
+            backdropFilter: 'blur(6px)',
+            padding: '4px 10px',
+            borderRadius: 20,
+            fontSize: 10,
+            fontWeight: 600,
+            color: '#FFFFFF',
+            letterSpacing: 0.5,
+            textTransform: 'uppercase',
+          }}>
+            {categoryLabel(primaryCategory, lang)}
+          </span>
+        )}
 
         {/* Favorite Heart Button */}
         <button

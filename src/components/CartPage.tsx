@@ -33,17 +33,17 @@ export default function CartPage({
       display: 'flex',
       flexDirection: 'column',
       minHeight: '100vh',
-      background: '#FAF8F5',
-      color: '#171717',
+      background: 'var(--theme-bg)',
+      color: 'var(--theme-ink)',
     }}>
       {/* Top Bar */}
       <div style={{
         padding: '20px 24px 16px',
-        borderBottom: '1px solid #E7E3DC',
+        borderBottom: '1px solid var(--theme-line)',
         position: 'sticky',
         top: 0,
         zIndex: 20,
-        background: '#FAF8F5',
+        background: 'var(--theme-bg)',
       }}>
         <div style={{
           maxWidth: 960,
@@ -79,7 +79,7 @@ export default function CartPage({
               fontFamily: 'Playfair Display, serif',
               fontSize: 22,
               fontWeight: 600,
-              color: '#171717',
+              color: 'var(--theme-ink)',
               letterSpacing: '-0.2px',
             }}>
               {t.shoppingBag}
@@ -87,7 +87,7 @@ export default function CartPage({
             <span style={{
               fontFamily: 'Poppins, sans-serif',
               fontSize: 12,
-              color: '#7E7E84',
+              color: 'var(--theme-muted)',
             }}>
               {cartItems.length} {cartItems.length === 1 ? 'prenda' : 'prendas'}
             </span>
@@ -135,12 +135,12 @@ export default function CartPage({
               fontFamily: 'Playfair Display, serif',
               fontSize: 24,
               fontWeight: 600,
-              color: '#171717',
+              color: 'var(--theme-ink)',
               marginBottom: 8,
             }}>
               {t.emptyBagTitle}
             </h3>
-            <p style={{ fontSize: 13, color: '#7E7E84', maxWidth: 320, lineHeight: 1.6, marginBottom: 24 }}>
+            <p style={{ fontSize: 13, color: 'var(--theme-muted)', maxWidth: 320, lineHeight: 1.6, marginBottom: 24 }}>
               {t.emptyBagDesc}
             </p>
             <button
@@ -148,8 +148,8 @@ export default function CartPage({
               style={{
                 padding: '12px 28px',
                 borderRadius: 12,
-                background: '#758A77',
-                color: '#FFFFFF',
+                background: 'var(--monada-sage)',
+                color: 'var(--on-accent)',
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -167,10 +167,10 @@ export default function CartPage({
                 <div
                   key={`${item.product.id}-${item.selectedSize}-${item.selectedColor ?? ''}-${index}`}
                   style={{
-                    background: '#FFFFFF',
+                    background: 'var(--theme-surface)',
                     borderRadius: 18,
                     padding: 16,
-                    border: '1px solid #E7E3DC',
+                    border: '1px solid var(--theme-line)',
                     display: 'flex',
                     gap: 16,
                     boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
@@ -184,29 +184,29 @@ export default function CartPage({
                       height: 110,
                       objectFit: 'cover',
                       borderRadius: 14,
-                      background: '#F1ECE5',
+                      background: 'var(--theme-surface-soft)',
                       flexShrink: 0,
                     }}
                   />
 
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
-                      <div style={{ fontSize: 11, color: '#7E7E84', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 500 }}>
+                      <div style={{ fontSize: 11, color: 'var(--theme-muted)', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 500 }}>
                         {item.product.series}
                       </div>
                       <h4 style={{
                         fontFamily: 'Playfair Display, serif',
                         fontSize: 16,
                         fontWeight: 600,
-                        color: '#171717',
+                        color: 'var(--theme-ink)',
                         margin: '2px 0 6px',
                       }}>
                         {item.product.name}
                       </h4>
-                      <div style={{ display: 'flex', gap: 10, fontSize: 12, color: '#7E7E84' }}>
-                        <span>{t.size}: <strong style={{ color: '#171717' }}>{item.selectedSize}</strong></span>
+                      <div style={{ display: 'flex', gap: 10, fontSize: 12, color: 'var(--theme-muted)' }}>
+                        <span>{t.size}: <strong style={{ color: 'var(--theme-ink)' }}>{item.selectedSize}</strong></span>
                         {item.selectedColor && (
-                          <span>• {t.color}: <strong style={{ color: '#171717' }}>{item.selectedColor}</strong></span>
+                          <span>• {t.color}: <strong style={{ color: 'var(--theme-ink)' }}>{item.selectedColor}</strong></span>
                         )}
                       </div>
                     </div>
@@ -216,10 +216,10 @@ export default function CartPage({
                         display: 'flex',
                         alignItems: 'center',
                         gap: 10,
-                        background: '#FAF8F5',
+                        background: 'var(--theme-bg)',
                         padding: '4px 8px',
                         borderRadius: 10,
-                        border: '1px solid #E7E3DC',
+                        border: '1px solid var(--theme-line)',
                       }}>
                         <button
                           onClick={() => onDecrease(item)}
@@ -227,14 +227,14 @@ export default function CartPage({
                             width: 22,
                             height: 22,
                             borderRadius: '50%',
-                            background: '#FFFFFF',
-                            border: '1px solid #E7E3DC',
+                            background: 'var(--theme-surface)',
+                            border: '1px solid var(--theme-line)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             cursor: 'pointer',
                             fontSize: 13,
-                            color: '#171717',
+                            color: 'var(--theme-ink)',
                           }}
                         >
                           −
@@ -248,14 +248,14 @@ export default function CartPage({
                             width: 22,
                             height: 22,
                             borderRadius: '50%',
-                            background: '#FFFFFF',
-                            border: '1px solid #E7E3DC',
+                            background: 'var(--theme-surface)',
+                            border: '1px solid var(--theme-line)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             cursor: 'pointer',
                             fontSize: 13,
-                            color: '#171717',
+                            color: 'var(--theme-ink)',
                           }}
                         >
                           +
@@ -289,10 +289,10 @@ export default function CartPage({
 
             {/* Order Summary Column */}
             <div style={{
-              background: '#FFFFFF',
+              background: 'var(--theme-surface)',
               borderRadius: 20,
               padding: 24,
-              border: '1px solid #E7E3DC',
+              border: '1px solid var(--theme-line)',
               boxShadow: '0 8px 24px rgba(0,0,0,0.04)',
               position: 'sticky',
               top: 100,
@@ -301,35 +301,35 @@ export default function CartPage({
                 fontFamily: 'Playfair Display, serif',
                 fontSize: 18,
                 fontWeight: 600,
-                color: '#171717',
+                color: 'var(--theme-ink)',
                 marginBottom: 16,
               }}>
                 {t.orderSummary}
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7E7E84' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--theme-muted)' }}>
                   <span>{t.subtotal}</span>
-                  <span style={{ color: '#171717', fontWeight: 600 }}>${subTotal.toFixed(2)} USD</span>
+                  <span style={{ color: 'var(--theme-ink)', fontWeight: 600 }}>${subTotal.toFixed(2)} USD</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7E7E84' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--theme-muted)' }}>
                   <span>{t.estimatedShipping}</span>
                   {qualifiesFreeDelivery ? (
-                    <span style={{ color: '#758A77', fontWeight: 600, fontSize: 12 }}>
+                    <span style={{ color: 'var(--monada-sage)', fontWeight: 600, fontSize: 12 }}>
                       {lang === 'es' ? 'Envío gratis' : 'Free delivery'}
                     </span>
                   ) : (
-                    <span style={{ color: '#758A77', fontWeight: 500, fontSize: 12 }}>{t.shippingNote}</span>
+                    <span style={{ color: 'var(--monada-sage)', fontWeight: 500, fontSize: 12 }}>{t.shippingNote}</span>
                   )}
                 </div>
-                <div style={{ height: 1, background: '#E7E3DC', margin: '4px 0' }} />
+                <div style={{ height: 1, background: 'var(--theme-line)', margin: '4px 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 700 }}>
                   <span>{t.total}</span>
                   <span style={{ color: '#9B6F5A' }}>${subTotal.toFixed(2)} USD</span>
                 </div>
               </div>
 
-              <div style={{ fontSize: 11, color: '#7E7E84', marginTop: 10, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, color: 'var(--theme-muted)', marginTop: 10, lineHeight: 1.5 }}>
                 {t.taxesIncluded}
               </div>
 
@@ -338,14 +338,14 @@ export default function CartPage({
                   marginTop: 10,
                   padding: '9px 12px',
                   borderRadius: 10,
-                  background: '#F1ECE5',
+                  background: 'var(--theme-surface-soft)',
                   fontSize: 11,
-                  color: '#52525B',
+                  color: 'var(--theme-muted)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
                 }}>
-                  <IconTruck size={13} style={{ color: '#758A77', flexShrink: 0 }} />
+                  <IconTruck size={13} style={{ color: 'var(--monada-sage)', flexShrink: 0 }} />
                   <span>
                     {lang === 'es'
                       ? `Te faltan $${remainingForFreeDelivery.toFixed(2)} para envío gratis`
@@ -363,7 +363,7 @@ export default function CartPage({
                   height: 54,
                   borderRadius: 14,
                   background: '#25D366',
-                  color: '#FFFFFF',
+                  color: 'var(--on-whatsapp)',
                   fontSize: 14,
                   fontWeight: 600,
                   cursor: 'pointer',

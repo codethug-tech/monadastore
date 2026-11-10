@@ -26,14 +26,14 @@ export default function WishlistPage({
       display: 'flex',
       flexDirection: 'column',
       minHeight: '100vh',
-      background: '#FAF8F5',
-      color: '#171717',
+      background: 'var(--theme-bg)',
+      color: 'var(--theme-ink)',
     }}>
       {/* Top Header */}
       <div style={{
         padding: '20px 24px 16px',
-        borderBottom: '1px solid #E7E3DC',
-        background: '#FAF8F5',
+        borderBottom: '1px solid var(--theme-line)',
+        background: 'var(--theme-bg)',
         position: 'sticky',
         top: 0,
         zIndex: 20,
@@ -52,13 +52,13 @@ export default function WishlistPage({
               width: 40,
               height: 40,
               borderRadius: '50%',
-              background: '#FFFFFF',
-              border: '1px solid #E7E3DC',
+              background: 'var(--theme-surface)',
+              border: '1px solid var(--theme-line)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: '#171717',
+              color: 'var(--theme-ink)',
               transition: 'transform 0.15s ease',
             }}
             onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
@@ -74,7 +74,7 @@ export default function WishlistPage({
               fontFamily: 'Playfair Display, serif',
               fontSize: 22,
               fontWeight: 600,
-              color: '#171717',
+              color: 'var(--theme-ink)',
               letterSpacing: '-0.2px',
             }}>
               {t.favoritePieces}
@@ -82,7 +82,7 @@ export default function WishlistPage({
             <span style={{
               fontFamily: 'Poppins, sans-serif',
               fontSize: 12,
-              color: '#7E7E84',
+              color: 'var(--theme-muted)',
               fontWeight: 400,
             }}>
               {favoriteProducts.length} {favoriteProducts.length === 1 ? 'prenda' : 'prendas'}
@@ -115,7 +115,7 @@ export default function WishlistPage({
               height: 70,
               borderRadius: '50%',
               background: '#EBF0EC',
-              color: '#758A77',
+              color: 'var(--monada-sage)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -129,14 +129,14 @@ export default function WishlistPage({
               fontFamily: 'Playfair Display, serif',
               fontSize: 22,
               fontWeight: 600,
-              color: '#171717',
+              color: 'var(--theme-ink)',
               marginBottom: 8,
             }}>
               {t.wishlistEmptyTitle}
             </h3>
             <p style={{
               fontSize: 13,
-              color: '#7E7E84',
+              color: 'var(--theme-muted)',
               maxWidth: 320,
               lineHeight: 1.6,
               marginBottom: 24,
@@ -148,8 +148,8 @@ export default function WishlistPage({
               style={{
                 padding: '12px 28px',
                 borderRadius: 12,
-                background: '#758A77',
-                color: '#FFFFFF',
+                background: 'var(--monada-sage)',
+                color: 'var(--on-accent)',
                 fontFamily: 'Poppins, sans-serif',
                 fontSize: 13,
                 fontWeight: 600,
@@ -171,10 +171,10 @@ export default function WishlistPage({
                 key={product.id}
                 onClick={() => onProductTap(product)}
                 style={{
-                  background: '#FFFFFF',
+                  background: 'var(--theme-surface)',
                   borderRadius: 20,
                   overflow: 'hidden',
-                  border: '1px solid #E7E3DC',
+                  border: '1px solid var(--theme-line)',
                   display: 'flex',
                   flexDirection: 'column',
                   cursor: 'pointer',
@@ -191,7 +191,7 @@ export default function WishlistPage({
                 }}
               >
                 {/* Image */}
-                <div style={{ position: 'relative', width: '100%', aspectRatio: '4/5', background: '#F1ECE5' }}>
+                <div style={{ position: 'relative', width: '100%', aspectRatio: '4/5', background: 'var(--theme-surface-soft)' }}>
                   <img
                     src={product.imageUrl}
                     alt={product.name}
@@ -226,14 +226,14 @@ export default function WishlistPage({
                 {/* Info */}
                 <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
                   <div>
-                    <span style={{ fontSize: 11, color: '#7E7E84', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 500 }}>
+                    <span style={{ fontSize: 11, color: 'var(--theme-muted)', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 500 }}>
                       {product.series}
                     </span>
                     <h4 style={{
                       fontFamily: 'Playfair Display, serif',
                       fontSize: 16,
                       fontWeight: 600,
-                      color: '#171717',
+                      color: 'var(--theme-ink)',
                       margin: '4px 0 6px',
                       lineHeight: 1.2,
                     }}>
@@ -254,8 +254,8 @@ export default function WishlistPage({
                       width: '100%',
                       padding: '10px 0',
                       borderRadius: 10,
-                      background: '#758A77',
-                      color: '#FFFFFF',
+                      background: 'var(--monada-sage)',
+                      color: 'var(--on-accent)',
                       fontSize: 12,
                       fontWeight: 600,
                       display: 'flex',

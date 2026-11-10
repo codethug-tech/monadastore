@@ -233,3 +233,10 @@ export const IconRefresh = ({ size = 16, strokeWidth = 1.8, ...props }: IconProp
     <path d="M20.5 13a8.5 8.5 0 1 1-2.1-8.4L21 9" />
   </svg>
 );
+
+export const IconCamera = ({ size = 14, strokeWidth = 1.8, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+    <circle cx="12" cy="13" r="4" />
+  </svg>
+);

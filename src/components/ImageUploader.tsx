@@ -125,6 +125,18 @@ export default function ImageUploader({
     if (onImageReplaced) onImageReplaced(url);
   };
 
+  /** Moves a photo one slot earlier or later, which changes the catalog cover. */
+  const moveGalleryImage = (index: number, delta: number) => {
+    if (!gallery || !onGalleryChange) return;
+    const target = index + delta;
+    if (target < 0 || target >= gallery.length) return;
+    const next = [...gallery];
+    [next[index], next[target]] = [next[target], next[index]];
+    onGalleryChange(next);
+    // Keep the main photo in step with the new cover.
+    if (index === 0 || target === 0) onChange(next[0]);
+  };
+
   const applyManualUrl = () => {
     const trimmed = manualUrl.trim();
     if (!trimmed) return;
@@ -296,47 +308,134 @@ export default function ImageUploader({
 
       {/* Gallery strip */}
       {gallery && onGalleryChange && gallery.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
-          {gallery.map((url, i) => (
-            <div key={`${url}-${i}`} style={{ position: 'relative' }}>
-              <img
-                src={url}
-                alt=""
-                style={{
-                  width: 56,
-                  height: 68,
-                  objectFit: 'cover',
-                  borderRadius: 8,
-                  border: '1px solid var(--theme-line)',
-                  display: 'block',
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => removeGalleryImage(url)}
-                title={isEs ? 'Quitar' : 'Remove'}
-                style={{
-                  position: 'absolute',
-                  top: -5,
-                  right: -5,
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  background: 'var(--monada-danger)',
-                  color: '#fff',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: 10,
-                  lineHeight: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                ×
-              </button>
-            </div>
-          ))}
+        <div style={{ marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--theme-muted)', marginBottom: 6, lineHeight: 1.5 }}>
+            {isEs
+              ? 'La primera foto es la portada del catálogo. Usa ‹ › para reordenar.'
+              : 'The first photo is the catalog cover. Use ‹ › to reorder.'}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {gallery.map((url, i) => (
+              <div key={`${url}-${i}`} style={{ position: 'relative' }}>
+                <img
+                  src={url}
+                  alt=""
+                  style={{
+                    width: 56,
+                    height: 68,
+                    objectFit: 'cover',
+                    borderRadius: 8,
+                    border: i === 0 ? '2px solid var(--monada-sage)' : '1px solid var(--theme-line)',
+                    display: 'block',
+                  }}
+                />
+
+                {/* Cover marker */}
+                {i === 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    bottom: -4,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'var(--monada-sage)',
+                    color: '#fff',
+                    fontSize: 8,
+                    fontWeight: 700,
+                    padding: '1px 5px',
+                    borderRadius: 10,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {isEs ? 'PORTADA' : 'COVER'}
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => removeGalleryImage(url)}
+                  title={isEs ? 'Quitar' : 'Remove'}
+                  style={{
+                    position: 'absolute',
+                    top: -5,
+                    right: -5,
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    background: 'var(--monada-danger)',
+                    color: '#fff',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 10,
+                    lineHeight: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  ×
+                </button>
+
+                {/* Reorder controls */}
+                {gallery.length > 1 && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: -4,
+                    right: -5,
+                    display: 'flex',
+                    gap: 2,
+                  }}>
+                    <button
+                      type="button"
+                      disabled={i === 0}
+                      onClick={() => moveGalleryImage(i, -1)}
+                      title={isEs ? 'Mover antes' : 'Move earlier'}
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        border: '1px solid var(--theme-line)',
+                        background: 'var(--theme-surface)',
+                        color: 'var(--theme-ink)',
+                        cursor: i === 0 ? 'not-allowed' : 'pointer',
+                        opacity: i === 0 ? 0.35 : 1,
+                        fontSize: 9,
+                        lineHeight: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 0,
+                      }}
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      disabled={i === gallery.length - 1}
+                      onClick={() => moveGalleryImage(i, 1)}
+                      title={isEs ? 'Mover después' : 'Move later'}
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        border: '1px solid var(--theme-line)',
+                        background: 'var(--theme-surface)',
+                        color: 'var(--theme-ink)',
+                        cursor: i === gallery.length - 1 ? 'not-allowed' : 'pointer',
+                        opacity: i === gallery.length - 1 ? 0.35 : 1,
+                        fontSize: 9,
+                        lineHeight: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 0,
+                      }}
+                    >
+                      ›
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

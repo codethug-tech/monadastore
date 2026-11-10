@@ -100,7 +100,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               style={{
                 height: 44,
                 borderRadius: 12,
-                background: '#758A77',
+                background: 'var(--monada-sage)',
                 color: '#FFFFFF',
                 border: 'none',
                 fontSize: 14,

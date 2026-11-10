@@ -86,13 +86,24 @@ npm run verify
 
 This runs two things:
 
-- **`verify:schema`** — 46 checks that the SQL matches what the app reads and writes. No credentials needed.
+- **`verify:schema`** — 60 checks that the SQL matches what the app reads and writes. No credentials needed.
 - **`verify:supabase`** — real round-trips against your project: inserts a product, reads it back, updates it, deletes it. Same for orders and settings. Uploads a test image, fetches it over public HTTP, deletes it. Cleans up after itself.
+
+**Writing needs an admin login.** The catalog is world-readable, but products, settings and photos can only be written by a signed-in admin (that is the whole point of the security rules). So `verify:supabase` signs in with your admin account. Add these to `.env`:
+
+```
+VERIFY_ADMIN_EMAIL=you@example.com
+VERIFY_ADMIN_PASSWORD=your-admin-password
+```
+
+Note the names: deliberately **not** prefixed with `VITE_`, so Vite cannot bake your password into the browser bundle. Use the account you created in Supabase Auth → Users for the admin panel.
+
+Without them the write checks are reported as **skipped** rather than failed, and you still get a useful read-only report.
 
 Expected output:
 
 ```
-✓ All 28 checks passed.
+✓ 15 checks passed.
   Your backend is ready.
 ```
 
@@ -132,19 +143,37 @@ The app always writes to the browser first, then to Supabase. If Supabase is unr
 
 ---
 
-## Security — read before you take real orders
+## Security — what the rules actually do
 
-The schema ships with open access rules so you can build without friction. That means **anyone with your public anon key can read your customer orders and write to your catalog.**
+The schema now ships **locked down**. Verified against the live project:
 
-The anon key is in your website's JavaScript. It is not a secret.
+| Data | Anonymous visitor | Signed-in admin |
+|---|---|---|
+| Read products | ✅ yes (storefront needs it) | ✅ yes |
+| Read store settings | ✅ yes (WhatsApp number, BCV rate) | ✅ yes |
+| **Read customer orders** | ❌ blocked | ✅ yes |
+| Place an order | ✅ yes (guest checkout) | ✅ yes |
+| Write products / settings | ❌ blocked | ✅ yes |
+| Upload / delete photos | ❌ blocked | ✅ yes |
 
-That is acceptable while you are building. Before you take real money:
+The anon key is in your website's JavaScript. That is fine — it is a public key by design. What protects your data is Row Level Security, not secrecy of the key.
 
-1. Move the admin behind Supabase Auth (email + password, real accounts).
-2. Change the policies so that only authenticated users can write products, upload photos, and read orders.
-3. Keep public read access on `products` and `store_settings` only — the storefront needs those.
+Customer names, phone numbers and addresses are only readable by a signed-in admin. Prove this any time with:
 
-Until then, treat the admin password as decorative: it is a client-side gate, not real security.
+```bash
+npm run verify:security
+```
+
+That check plants a real order as the admin, then tries to read it back as a stranger. An empty table would otherwise make the test pass for the wrong reason.
+
+### Before you take real money
+
+1. **Create your admin account** in Supabase → Authentication → Users. Without it you cannot log into the admin panel, so you cannot add products.
+2. **Add the admin credentials to `.env`** (`VERIFY_ADMIN_EMAIL` / `VERIFY_ADMIN_PASSWORD`) so `npm run verify` can test the write paths.
+3. **Turn off public sign-ups** in Supabase → Authentication → Providers → Email, so strangers cannot create accounts. Only `authenticated` users can write, so anyone who signs up would become an admin.
+4. Never put the `service_role` key in this project. It bypasses every rule above.
+
+Point 3 is the one people miss. The policies grant write access to *any* authenticated user.
 
 ---
 

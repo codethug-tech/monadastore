@@ -6,7 +6,7 @@
 
 :root {
   /* Common Palette */
-  --monada-sage: #758A77;
+  --monada-sage: #657A69;
   --monada-sage-light: #8E9F90;
   --monada-sage-soft: #EBF0EC;
   --monada-terracotta: #9B6F5A;
@@ -25,11 +25,17 @@
   --theme-surface-subtle: #F6F3EE;
   --theme-ink: #171717;
   --theme-ink-secondary: #52525B;
-  --theme-muted: #7E7E84;
+  --theme-muted: #70707A;
   --theme-line: #E7E3DC;
   --theme-card-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
   --theme-card-shadow-hover: 0 16px 36px rgba(0, 0, 0, 0.09);
   --logo-filter: none;
+
+  /* Text drawn ON a coloured accent (sage, WhatsApp green, terracotta).
+     These are deliberately not tied to --theme-surface: the accent colours
+     stay the same in both themes, so their label colour must too. */
+  --on-accent: #FFFFFF;
+  --on-whatsapp: #0B2E18;
 }
 
 [data-theme="dark"] {
@@ -46,6 +52,11 @@
   --theme-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   --theme-card-shadow-hover: 0 16px 38px rgba(0, 0, 0, 0.6);
   --logo-filter: brightness(0) invert(1);
+
+  /* Unchanged from light: the accents do not change with the theme, so
+     neither does the text sitting on them. */
+  --on-accent: #FFFFFF;
+  --on-whatsapp: #0B2E18;
 }
 
 body {
@@ -100,4 +111,19 @@ img {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Skeleton placeholder while the catalog loads */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+/* Respect users who ask for less motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

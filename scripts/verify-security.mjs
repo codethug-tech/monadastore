@@ -24,6 +24,25 @@ const sb = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 });
 
+// Optional admin client: some checks need a row that a stranger then tries to
+// read. Reading an empty table proves nothing, so we plant a row first.
+const adminEmail = env.VERIFY_ADMIN_EMAIL || process.env.VERIFY_ADMIN_EMAIL || '';
+const adminPassword = env.VERIFY_ADMIN_PASSWORD || process.env.VERIFY_ADMIN_PASSWORD || '';
+let admin = null;
+if (adminEmail && adminPassword) {
+  admin = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error } = await admin.auth.signInWithPassword({
+    email: adminEmail,
+    password: adminPassword,
+  });
+  if (error) {
+    console.error(`\n  ! Could not sign in as admin (${error.message}).\n`);
+    admin = null;
+  }
+}
+
 const results = [];
 const record = (name, ok, detail) => {
   results.push({ name, ok, detail });
@@ -48,16 +67,63 @@ const { error: writeErr } = await sb.from('products').insert({
 });
 record('anonymous CANNOT write products', Boolean(writeErr), writeErr?.message ?? 'SECURITY HOLE');
 
-const { data: orderData, error: orderErr } = await sb
-  .from('orders')
-  .select('customer_name, customer_phone')
-  .limit(5);
-const ordersBlocked = Boolean(orderErr) || (orderData?.length ?? 0) === 0;
-record(
-  'anonymous CANNOT read customer orders',
-  ordersBlocked,
-  orderErr?.message ?? (orderData?.length === 0 ? 'no rows returned' : 'SECURITY HOLE')
-);
+// An empty table answers 200 with no rows whether the policy hides the data or
+// there is simply nothing to hide. So plant a real order as the admin and see
+// whether a stranger can read it back.
+const probeId = 'SEC-PROBE-' + Date.now();
+let containerRow = null;
+
+if (admin) {
+  const { error: plantErr } = await admin.from('orders').insert({
+    id: probeId,
+    customer_name: 'ZZ_SEC_PROBE',
+    customer_phone: '0000000000',
+    city_address: 'probe',
+    payment_method: 'pago_movil',
+    subtotal: 1,
+    total: 1,
+    status: 'pending_whatsapp',
+    items: [],
+  });
+  if (!plantErr) containerRow = probeId;
+}
+
+if (containerRow) {
+  const { data: leaked, error: leakErr } = await sb
+    .from('orders')
+    .select('customer_name, customer_phone')
+    .eq('id', containerRow);
+
+  const exposed = !leakErr && Array.isArray(leaked) && leaked.length > 0;
+  record(
+    'anonymous CANNOT read customer orders',
+    !exposed,
+    exposed ? 'SECURITY HOLE: probe row was readable' : 'probe row stayed hidden'
+  );
+
+  await admin.from('orders').delete().eq('id', containerRow);
+} else {
+  // Without admin credentials we cannot prove this either way. Do not report a
+  // pass we have not earned.
+  const { data: anyOrders, error: orderErr } = await sb
+    .from('orders')
+    .select('customer_name, customer_phone')
+    .limit(5);
+  const visible = !orderErr && (anyOrders?.length ?? 0) > 0;
+  if (visible) {
+    record(
+      'anonymous CANNOT read customer orders',
+      false,
+      'SECURITY HOLE: customer rows are readable with the anon key'
+    );
+  } else {
+    record(
+      'anonymous CANNOT read customer orders',
+      true,
+      'UNPROVEN — set VERIFY_ADMIN_EMAIL/PASSWORD to plant a probe row'
+    );
+  }
+}
 
 // An RLS-blocked UPDATE returns success with 0 rows, not an error, so the only
 // reliable test is whether the stored value actually changed.

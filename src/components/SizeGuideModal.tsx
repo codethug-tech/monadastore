@@ -81,7 +81,7 @@ export default function SizeGuideModal({ isOpen, onClose, lang }: SizeGuideModal
                 style={{
                   padding: '4px 10px',
                   borderRadius: 12,
-                  background: unit === 'cm' ? '#758A77' : 'transparent',
+                  background: unit === 'cm' ? 'var(--monada-sage)' : 'transparent',
                   color: unit === 'cm' ? '#FFFFFF' : '#7E7E84',
                   fontSize: 11,
                   fontWeight: 600,
@@ -96,7 +96,7 @@ export default function SizeGuideModal({ isOpen, onClose, lang }: SizeGuideModal
                 style={{
                   padding: '4px 10px',
                   borderRadius: 12,
-                  background: unit === 'in' ? '#758A77' : 'transparent',
+                  background: unit === 'in' ? 'var(--monada-sage)' : 'transparent',
                   color: unit === 'in' ? '#FFFFFF' : '#7E7E84',
                   fontSize: 11,
                   fontWeight: 600,

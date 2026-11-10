@@ -66,6 +66,18 @@ const supabase = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+// The catalog is world-readable, so an anonymous client is enough for the
+// read-side checks. Writes require a signed-in admin, which is why this script
+// also needs credentials: set VERIFY_ADMIN_EMAIL / VERIFY_ADMIN_PASSWORD in
+// .env (or the environment) to the Supabase Auth user you use for the admin
+// panel. Without them the write checks are skipped, not failed, so you still
+// get a useful read-only report.
+const adminEmail = env.VERIFY_ADMIN_EMAIL || process.env.VERIFY_ADMIN_EMAIL || '';
+const adminPassword = env.VERIFY_ADMIN_PASSWORD || process.env.VERIFY_ADMIN_PASSWORD || '';
+
+let adminClient = null;
+let adminSignedIn = false;
+
 // ---------------------------------------------------------------------------
 // reporting
 // ---------------------------------------------------------------------------
@@ -85,6 +97,14 @@ const warn = (name, detail) => {
 
 const section = title => console.log(`\n\x1b[1m${title}\x1b[0m`);
 
+// Skipped checks are neither passes nor failures: something could not be
+// tested (usually missing admin credentials), so they are reported separately
+// and never affect the exit code.
+const skip = (name, why) => {
+  results.push({ name, ok: true, skipped: true, detail: why });
+  console.log(`  \x1b[90m-\x1b[0m ${name} — skipped: ${why}`);
+};
+
 // ---------------------------------------------------------------------------
 // tests
 // ---------------------------------------------------------------------------
@@ -98,6 +118,41 @@ const TINY_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64'
 );
+
+async function signInAdmin() {
+  section('Admin authentication');
+
+  if (!adminEmail || !adminPassword) {
+    skip(
+      'Sign in as admin',
+      'set VERIFY_ADMIN_EMAIL and VERIFY_ADMIN_PASSWORD in .env to test the write paths'
+    );
+    return false;
+  }
+
+  adminClient = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data, error } = await adminClient.auth.signInWithPassword({
+    email: adminEmail,
+    password: adminPassword,
+  });
+
+  if (error) {
+    record('Sign in as admin', false, error.message);
+    return false;
+  }
+
+  adminSignedIn = Boolean(data?.session);
+  record('Sign in as admin', adminSignedIn, adminEmail);
+  return adminSignedIn;
+}
+
+// Writes go through the admin client when we have one, otherwise the anon
+// client. The latter is expected to fail once RLS is locked down, so callers
+// decide whether a failure is a bug or a correctly-enforced policy.
+const writer = () => adminClient ?? supabase;
 
 async function testConnection() {
   section('Connection');
@@ -146,14 +201,17 @@ async function testProductRoundTrip() {
     reviews: [],
   };
 
-  const { error: insErr } = await supabase.from('products').insert(row);
+  // Clean up any row left by an interrupted earlier run, then insert fresh.
+  await writer().from('products').delete().eq('id', TEST_PRODUCT_ID);
+
+  const { error: insErr } = await writer().from('products').insert(row);
   if (insErr) {
     record('Insert product', false, insErr.message);
     return false;
   }
   record('Insert product', true);
 
-  const { data: read, error: readErr } = await supabase
+  const { data: read, error: readErr } = await writer()
     .from('products')
     .select('*')
     .eq('id', TEST_PRODUCT_ID)
@@ -172,13 +230,13 @@ async function testProductRoundTrip() {
     record('Read product back', fieldsOk, fieldsOk ? 'all fields intact' : 'field mismatch');
   }
 
-  const { error: updErr } = await supabase
+  const { error: updErr } = await writer()
     .from('products')
     .update({ price: 99.99 })
     .eq('id', TEST_PRODUCT_ID);
   record('Update product', !updErr, updErr?.message ?? '');
 
-  const { error: delErr } = await supabase
+  const { error: delErr } = await writer()
     .from('products')
     .delete()
     .eq('id', TEST_PRODUCT_ID);
@@ -207,14 +265,18 @@ async function testOrderRoundTrip() {
     ],
   };
 
-  const { error: insErr } = await supabase.from('orders').insert(order);
+  // Clean up any row left by an interrupted earlier run, then insert fresh.
+  // (Anon cannot see or delete orders, so this needs the admin client.)
+  await writer().from('orders').delete().eq('id', TEST_ORDER_ID);
+
+  const { error: insErr } = await writer().from('orders').insert(order);
   if (insErr) {
     record('Insert order', false, insErr.message);
     return false;
   }
   record('Insert order', true);
 
-  const { data: read, error: readErr } = await supabase
+  const { data: read, error: readErr } = await writer()
     .from('orders')
     .select('*')
     .eq('id', TEST_ORDER_ID)
@@ -233,14 +295,14 @@ async function testOrderRoundTrip() {
   }
 
   // The admin status dropdown needs UPDATE permission.
-  const { error: updErr } = await supabase
+  const { error: updErr } = await writer()
     .from('orders')
     .update({ status: 'confirmed' })
     .eq('id', TEST_ORDER_ID);
   record('Update order status', !updErr, updErr?.message ?? 'admin dropdown will work');
 
   // The admin delete button needs DELETE permission.
-  const { error: delErr } = await supabase.from('orders').delete().eq('id', TEST_ORDER_ID);
+  const { error: delErr } = await writer().from('orders').delete().eq('id', TEST_ORDER_ID);
   record('Delete order', !delErr, delErr?.message ?? 'admin delete will work');
 
   return true;
@@ -273,7 +335,7 @@ async function testSettings() {
     free_delivery_threshold: existing?.free_delivery_threshold ?? 100,
   };
 
-  const { error: upsertErr } = await supabase
+  const { error: upsertErr } = await writer()
     .from('store_settings')
     .upsert(payload, { onConflict: 'id' });
   record('Upsert store_settings', !upsertErr, upsertErr?.message ?? '');
@@ -302,7 +364,7 @@ async function testSettings() {
 async function testStorage() {
   section('Storage (product-images bucket)');
 
-  const { error: upErr } = await supabase.storage
+  const { error: upErr } = await writer().storage
     .from('product-images')
     .upload(TEST_IMAGE_PATH, TINY_PNG, { contentType: 'image/png', upsert: true });
 
@@ -331,7 +393,7 @@ async function testStorage() {
     }
   }
 
-  const { error: delErr } = await supabase.storage
+  const { error: delErr } = await writer().storage
     .from('product-images')
     .remove([TEST_IMAGE_PATH]);
   record('Delete image', !delErr, delErr?.message ?? '');
@@ -340,10 +402,9 @@ async function testStorage() {
 }
 
 async function checkRlsExposure() {
-  section('Security posture');
+  section('Security posture (anonymous client, no login)');
 
-  // These succeed only because the policies are wide open. That is expected
-  // during development, and it is the thing to lock down before launch.
+  // --- Can a stranger write to the catalog? ---
   const { error: writeErr } = await supabase.from('products').insert({
     id: TEST_PRODUCT_ID + 1,
     name: 'RLS PROBE',
@@ -352,27 +413,91 @@ async function checkRlsExposure() {
   });
 
   if (!writeErr) {
-    await supabase.from('products').delete().eq('id', TEST_PRODUCT_ID + 1);
-    warn(
-      'Anonymous write to products is allowed',
-      'expected while building; lock down before launch'
+    await writer().from('products').delete().eq('id', TEST_PRODUCT_ID + 1);
+    record(
+      'Anonymous write to products is BLOCKED',
+      false,
+      'a stranger can edit your catalog with the public anon key'
     );
   } else {
-    record('Anonymous write to products is blocked', true, 'RLS is already restrictive');
+    record('Anonymous write to products is BLOCKED', true, 'RLS is enforced');
   }
 
-  const { data: orders, error: readErr } = await supabase
-    .from('orders')
-    .select('customer_name, customer_phone')
-    .limit(1);
+  // --- Can a stranger read customer orders? ---
+  //
+  // Reading with an empty table proves nothing: PostgREST answers 200 with an
+  // empty array whether the policy hides the rows or there simply are none.
+  // So plant a row as the admin, then try to read it back as a stranger. If
+  // the stranger sees it, customer names, phones and addresses are exposed.
+  const probeId = 'RLS-PROBE-' + Date.now();
+  let probePlanted = false;
 
-  if (!readErr) {
-    warn(
-      'Anonymous read of customer orders is allowed',
-      'names and phone numbers are publicly readable with the anon key'
-    );
+  if (adminSignedIn) {
+    const { error: plantErr } = await writer().from('orders').insert({
+      id: probeId,
+      customer_name: 'ZZ_RLS_PROBE',
+      customer_phone: '0000000000',
+      city_address: 'probe',
+      payment_method: 'pago_movil',
+      subtotal: 1,
+      total: 1,
+      status: 'pending_whatsapp',
+      items: [],
+    });
+    probePlanted = !plantErr;
+    if (plantErr) {
+      skip('Anonymous read of orders', `could not plant probe row: ${plantErr.message}`);
+    }
   } else {
-    record('Anonymous read of orders is blocked', true, 'RLS is already restrictive');
+    skip('Anonymous read of orders', 'needs admin credentials to plant a probe row');
+  }
+
+  if (probePlanted) {
+    const { data: leaked, error: readErr } = await supabase
+      .from('orders')
+      .select('customer_name, customer_phone')
+      .eq('id', probeId);
+
+    const exposed = !readErr && Array.isArray(leaked) && leaked.length > 0;
+
+    if (exposed) {
+      record(
+        'Anonymous read of orders is BLOCKED',
+        false,
+        'customer names and phone numbers are readable with the public anon key'
+      );
+    } else {
+      record('Anonymous read of orders is BLOCKED', true, 'probe row stayed hidden');
+    }
+
+    // Always clean up, even when the probe leaked.
+    await writer().from('orders').delete().eq('id', probeId);
+  }
+
+  // --- Guest checkout must still work ---
+  const guestOrderId = 'RLS-GUEST-' + Date.now();
+  const { error: guestErr } = await supabase.from('orders').insert({
+    id: guestOrderId,
+    customer_name: 'ZZ_GUEST_PROBE',
+    customer_phone: '0000000000',
+    city_address: 'probe',
+    payment_method: 'pago_movil',
+    subtotal: 1,
+    total: 1,
+    status: 'pending_whatsapp',
+    items: [],
+  });
+  record(
+    'Guest checkout still works',
+    !guestErr,
+    guestErr ? guestErr.message : 'anonymous visitors can place an order'
+  );
+  if (!guestErr) {
+    // The guest cannot delete it (correctly), so remove it as the admin.
+    const { error: cleanupErr } = await writer().from('orders').delete().eq('id', guestOrderId);
+    if (cleanupErr) {
+      console.log(`     → Could not delete probe order ${guestOrderId}: ${cleanupErr.message}`);
+    }
   }
 }
 
@@ -398,6 +523,7 @@ if (!tablesOk) {
   process.exit(1);
 }
 
+await signInAdmin();
 await testProductRoundTrip();
 await testOrderRoundTrip();
 await testSettings();
@@ -409,19 +535,20 @@ await checkRlsExposure();
 // ---------------------------------------------------------------------------
 
 const failed = results.filter(r => !r.ok);
-const warned = results.filter(r => r.warn);
+const skipped = results.filter(r => r.skipped);
+const passed = results.filter(r => r.ok && !r.skipped);
 
 console.log('\n' + '─'.repeat(58));
 if (failed.length === 0) {
-  console.log(`\x1b[32m✓ All ${results.length} checks passed.\x1b[0m`);
+  console.log(`\x1b[32m✓ ${passed.length} checks passed\x1b[0m${skipped.length ? `, ${skipped.length} skipped` : ''}.`);
   console.log('  Your backend is ready. Open the admin panel and hit "Test Connection".');
 } else {
   console.log(`\x1b[31m✗ ${failed.length} of ${results.length} checks failed:\x1b[0m`);
   for (const f of failed) console.log(`   • ${f.name}: ${f.detail}`);
 }
-if (warned.length > 0) {
-  console.log(`\n\x1b[33m${warned.length} security note(s):\x1b[0m`);
-  for (const w of warned) console.log(`   • ${w.name}`);
+if (skipped.length > 0) {
+  console.log(`\n\x1b[33m${skipped.length} check(s) skipped:\x1b[0m`);
+  for (const s of skipped) console.log(`   • ${s.name}: ${s.detail}`);
 }
 console.log('─'.repeat(58) + '\n');
 

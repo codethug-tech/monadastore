@@ -65,7 +65,29 @@ function App() {
     return initialProducts;
   });
 
-  const [cartItems, setCartItems] = useState<ClothingCartItem[]>([]);
+  // Cart survives a reload. A customer who refreshes, or comes back from
+  // WhatsApp, must not find an empty bag.
+  const [cartItems, setCartItems] = useState<ClothingCartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('monada_cart');
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+      // Drop anything malformed rather than letting it break the cart page.
+      return parsed.filter(
+        (item): item is ClothingCartItem =>
+          Boolean(item) &&
+          typeof item === 'object' &&
+          Boolean(item.product) &&
+          typeof item.product?.id === 'number' &&
+          typeof item.quantity === 'number' &&
+          item.quantity > 0 &&
+          typeof item.selectedSize === 'string'
+      );
+    } catch {
+      return [];
+    }
+  });
   const [selectedProduct, setSelectedProduct] = useState<ClothingProduct | null>(null);
 
   // Latest catalog, so the boot sync can push local data up without stale closures
@@ -104,36 +126,56 @@ function App() {
     localStorage.setItem('monada_lang', lang);
   }, [lang]);
 
+  // Persist the cart so a reload never empties the bag.
+  useEffect(() => {
+    try {
+      localStorage.setItem('monada_cart', JSON.stringify(cartItems));
+    } catch {
+      /* quota or private mode: the in-memory cart still works */
+    }
+  }, [cartItems]);
+
+  // True until the first catalog fetch settles, so the storefront can show a
+  // loading state instead of briefly claiming there are no products.
+  const [catalogLoading, setCatalogLoading] = useState(() => readSupabaseConfig().isConnected);
+
   // Boot sync: pull catalog + settings from Supabase when it is configured.
   // If the remote catalog is empty, push what we have locally so the first
   // connection seeds the database instead of blanking the storefront.
   useEffect(() => {
-    if (!readSupabaseConfig().isConnected) return;
+    if (!readSupabaseConfig().isConnected) {
+      setCatalogLoading(false);
+      return;
+    }
     let cancelled = false;
 
     (async () => {
-      const [remoteProducts, remoteSettings] = await Promise.all([
-        fetchProducts(),
-        fetchStoreSettings(),
-      ]);
-      if (cancelled) return;
+      try {
+        const [remoteProducts, remoteSettings] = await Promise.all([
+          fetchProducts(),
+          fetchStoreSettings(),
+        ]);
+        if (cancelled) return;
 
-      if (remoteProducts && remoteProducts.length > 0) {
-        setProducts(remoteProducts);
-        localStorage.setItem('monada_custom_products', JSON.stringify(remoteProducts));
-      } else if (remoteProducts && remoteProducts.length === 0) {
-        // Empty remote table: seed it from whatever this browser already has.
-        await saveProducts(productsRef.current);
-      }
-      // remoteProducts === null means the read failed; keep the local catalog
-      // rather than blanking the storefront.
+        if (remoteProducts && remoteProducts.length > 0) {
+          setProducts(remoteProducts);
+          localStorage.setItem('monada_custom_products', JSON.stringify(remoteProducts));
+        } else if (remoteProducts && remoteProducts.length === 0) {
+          // Empty remote table: seed it from whatever this browser already has.
+          await saveProducts(productsRef.current);
+        }
+        // remoteProducts === null means the read failed; keep the local catalog
+        // rather than blanking the storefront.
 
-      if (remoteSettings) {
-        setConfig(prev => {
-          const merged = { ...prev, ...remoteSettings };
-          localStorage.setItem('monada_store_config', JSON.stringify(merged));
-          return merged;
-        });
+        if (remoteSettings) {
+          setConfig(prev => {
+            const merged = { ...prev, ...remoteSettings };
+            localStorage.setItem('monada_store_config', JSON.stringify(merged));
+            return merged;
+          });
+        }
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
       }
     })();
 
@@ -333,6 +375,7 @@ function App() {
       {page === 'store' && (
         <StorePage
           products={products}
+          loading={catalogLoading}
           cartCount={cartCount}
           wishlistCount={wishlistCount}
           lang={lang}

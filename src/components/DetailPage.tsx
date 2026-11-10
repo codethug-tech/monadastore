@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { ClothingProduct } from '../types';
 import { Language, translations } from '../i18n/translations';
 import { StoreConfig } from '../config/storeConfig';
+import { categoryLabel, isKnownCategory } from '../config/categories';
 import { buildWaLink } from '../lib/phone';
+import { useIsMobile } from '../lib/useIsMobile';
 import { IconArrowLeft, IconHeart, IconWhatsApp, IconBag, IconRuler, IconStar } from './Icons';
 
 interface DetailPageProps {
@@ -25,11 +27,34 @@ export default function DetailPage({
   onOpenSizeGuide,
 }: DetailPageProps) {
   const t = translations[lang];
+  const isMobile = useIsMobile();
 
-  const [selectedImage, setSelectedImage] = useState(product.imageUrl);
+  // A product may have no gallery, one photo, or many. Normalise once so the
+  // rest of the component never has to think about it.
+  const images = (() => {
+    const list = (product.gallery ?? []).filter(Boolean);
+    if (list.length > 0) return list;
+    return product.imageUrl ? [product.imageUrl] : [];
+  })();
+
+  const [selectedImage, setSelectedImage] = useState(images[0] ?? '');
   const [isFavorite, setIsFavorite] = useState(product.isFavorite);
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || product.size);
   const [selectedColor, setSelectedColor] = useState(product.colors?.[0]?.name || 'Standard');
+
+  // Index-based selection so duplicate URLs still highlight the right thumb.
+  const activeIndex = Math.max(0, images.indexOf(selectedImage));
+
+  const nextImage = () => {
+    if (images.length < 2) return;
+    setSelectedImage(images[(activeIndex + 1) % images.length]);
+  };
+  const prevImage = () => {
+    if (images.length < 2) return;
+    setSelectedImage(images[(activeIndex - 1 + images.length) % images.length]);
+  };
+
+  const primaryCategory = (product.categories ?? []).find(c => isKnownCategory(c));
 
   const handleFavorite = () => {
     setIsFavorite(f => !f);
@@ -155,59 +180,146 @@ export default function DetailPage({
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
 
-            {/* Side thumbnail rail */}
-            <div style={{
-              position: 'absolute',
-              right: 14,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              background: 'rgba(23, 23, 23, 0.75)',
-              backdropFilter: 'blur(8px)',
-              borderRadius: 20,
-              padding: '6px 5px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-            }}>
-              {product.gallery.map((img, i) => (
+            {/* Prev / next arrows, only when there is more than one photo.
+                On narrow screens the thumbnail rail is hidden (see below), so
+                the arrows sit at the edges without colliding with it. */}
+            {images.length > 1 && (
+              <>
                 <button
-                  key={i}
-                  onClick={() => setSelectedImage(img)}
+                  type="button"
+                  onClick={prevImage}
+                  aria-label={lang === 'es' ? 'Foto anterior' : 'Previous photo'}
                   style={{
-                    width: 44,
-                    height: 50,
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    padding: selectedImage === img ? 2 : 0,
-                    border: `2px solid ${selectedImage === img ? 'var(--monada-sage)' : 'transparent'}`,
+                    position: 'absolute',
+                    left: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    background: 'rgba(23, 23, 23, 0.6)',
+                    backdropFilter: 'blur(6px)',
+                    border: 'none',
+                    color: '#FFFFFF',
                     cursor: 'pointer',
-                    background: 'transparent',
-                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 2,
                   }}
                 >
-                  <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 9 }} />
+                  <IconArrowLeft size={16} />
                 </button>
-              ))}
-            </div>
+                <button
+                  type="button"
+                  onClick={nextImage}
+                  aria-label={lang === 'es' ? 'Foto siguiente' : 'Next photo'}
+                  style={{
+                    position: 'absolute',
+                    right: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%) rotate(180deg)',
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    background: 'rgba(23, 23, 23, 0.6)',
+                    backdropFilter: 'blur(6px)',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 2,
+                  }}
+                >
+                  <IconArrowLeft size={16} />
+                </button>
+              </>
+            )}
+
+            {/* Side thumbnail rail — desktop only. On phones it would sit on
+                top of the next/prev arrows, so the counter and swipe-less
+                arrows carry navigation there instead. */}
+            {images.length > 1 && !isMobile && (
+              <div style={{
+                position: 'absolute',
+                right: 14,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(23, 23, 23, 0.75)',
+                backdropFilter: 'blur(8px)',
+                borderRadius: 20,
+                padding: '6px 5px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                maxHeight: '70%',
+                overflowY: 'auto',
+              }}>
+                {images.map((img, i) => (
+                  <button
+                    key={`${img}-${i}`}
+                    type="button"
+                    onClick={() => setSelectedImage(img)}
+                    aria-label={`${lang === 'es' ? 'Ver foto' : 'View photo'} ${i + 1}`}
+                    style={{
+                      width: 44,
+                      height: 50,
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      padding: activeIndex === i ? 2 : 0,
+                      border: `2px solid ${activeIndex === i ? 'var(--monada-sage)' : 'transparent'}`,
+                      cursor: 'pointer',
+                      background: 'transparent',
+                      transition: 'all 0.2s ease',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 9 }} />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Photo counter */}
+            {images.length > 1 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 14,
+                right: 14,
+                background: 'rgba(23, 23, 23, 0.75)',
+                backdropFilter: 'blur(6px)',
+                padding: '5px 11px',
+                borderRadius: 30,
+                fontSize: 11,
+                fontWeight: 600,
+                color: '#FFFFFF',
+              }}>
+                {activeIndex + 1} / {images.length}
+              </div>
+            )}
 
             {/* Badge overlay */}
-            <div style={{
-              position: 'absolute',
-              bottom: 14,
-              left: 14,
-              background: 'rgba(23, 23, 23, 0.75)',
-              backdropFilter: 'blur(6px)',
-              padding: '6px 12px',
-              borderRadius: 30,
-              fontSize: 11,
-              fontWeight: 600,
-              color: '#FFFFFF',
-              letterSpacing: 0.5,
-              textTransform: 'uppercase',
-            }}>
-              {product.categories[0]}
-            </div>
+            {primaryCategory && (
+              <div style={{
+                position: 'absolute',
+                bottom: 14,
+                left: 14,
+                background: 'rgba(23, 23, 23, 0.75)',
+                backdropFilter: 'blur(6px)',
+                padding: '6px 12px',
+                borderRadius: 30,
+                fontSize: 11,
+                fontWeight: 600,
+                color: '#FFFFFF',
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+              }}>
+                {categoryLabel(primaryCategory, lang)}
+              </div>
+            )}
           </div>
         </div>
 
