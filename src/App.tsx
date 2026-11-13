@@ -301,8 +301,18 @@ function App() {
       `WhatsApp: ${updated.whatsappNumber}`
     );
 
-    saveStoreSettings(updated).then(ok => {
-      if (ok) {
+    saveStoreSettings(updated).then(result => {
+      if (result.ok && result.needsMigration) {
+        // Everything saved except the second number: the columns are missing.
+        showToast(
+          lang === 'es' ? 'Guardado, pero falta la migración' : 'Saved, but the migration is missing',
+          lang === 'es'
+            ? 'El segundo número NO se guardó. Ejecuta el SQL de la pestaña Supabase.'
+            : 'The second number was NOT saved. Run the SQL in the Supabase tab.'
+        );
+        return;
+      }
+      if (result.ok) {
         showToast(
           lang === 'es' ? 'Ajustes publicados' : 'Settings published',
           `${lang === 'es' ? 'Visible en todos los dispositivos' : 'Visible on every device'} · WhatsApp: ${updated.whatsappNumber}`

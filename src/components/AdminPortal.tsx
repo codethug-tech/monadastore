@@ -10,6 +10,7 @@ import {
   resetSupabaseClient,
   testConnection,
   fetchOrders,
+  checkSchemaCapabilities,
   updateOrderStatus,
   deleteOrder,
   ORDER_STATUSES,
@@ -158,6 +159,20 @@ export default function AdminPortal({
     };
   }, []);
 
+  // Detect once whether the second-number columns exist, so the form can say so
+  // up front rather than letting the owner type into a field that is dropped.
+  useEffect(() => {
+    let cancelled = false;
+    if (!readSupabaseConfig().isConnected) return;
+    (async () => {
+      const capabilities = await checkSchemaCapabilities();
+      if (!cancelled) setMissingTwoNumberColumns(!capabilities.twoNumberColumns);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const isAuthenticated = adminSession !== null;
 
   // Dashboard Tabs
@@ -199,6 +214,10 @@ export default function AdminPortal({
   const [showBsRate, setShowBsRate] = useState(config.showBsRate);
   const [freeDelivery, setFreeDelivery] = useState(String(config.freeDeliveryThreshold));
   const [settingsNotice, setSettingsNotice] = useState('');
+  // True when the two-number columns are missing from the database. Detected
+  // once on mount so the form can explain itself before the owner types into a
+  // field that cannot be saved.
+  const [missingTwoNumberColumns, setMissingTwoNumberColumns] = useState(false);
 
   // Order ledger state
   const [orders, setOrders] = useState<OrderRecord[]>([]);
@@ -2435,11 +2454,30 @@ export default function AdminPortal({
                       <IconWhatsApp size={16} style={{ color: 'var(--whatsapp-green)' }} />
                       <span>{isEs ? 'WhatsApp — número secundario (opcional)' : 'WhatsApp — secondary number (optional)'}</span>
                     </label>
+
+                    {missingTwoNumberColumns && (
+                      <div style={{
+                        marginBottom: 8,
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        background: 'rgba(220, 38, 38, 0.08)',
+                        border: '1px solid rgba(220, 38, 38, 0.25)',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: 'var(--monada-danger)',
+                        lineHeight: 1.5,
+                      }}>
+                        {isEs
+                          ? 'La base de datos aún no tiene las columnas para este número, así que NO se guardará. Ve a la pestaña «Supabase & SQL», copia el SQL y ejecútalo en Supabase. Luego recarga esta página.'
+                          : 'The database does not have the columns for this number yet, so it will NOT be saved. Open the "Supabase & SQL" tab, copy the SQL and run it in Supabase. Then reload this page.'}
+                      </div>
+                    )}
                     <input
                       type="tel"
                       inputMode="tel"
                       value={whatsapp2}
                       onChange={e => setWhatsapp2(e.target.value)}
+                      disabled={missingTwoNumberColumns}
                       placeholder="+58 414 987 6543"
                       style={{
                         width: '100%',
@@ -2449,6 +2487,8 @@ export default function AdminPortal({
                         background: 'var(--theme-bg)',
                         color: 'var(--theme-ink)',
                         fontSize: 13,
+                        opacity: missingTwoNumberColumns ? 0.5 : 1,
+                        cursor: missingTwoNumberColumns ? 'not-allowed' : 'text',
                       }}
                     />
                     {wa2Problem ? (

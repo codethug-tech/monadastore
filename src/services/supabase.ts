@@ -250,9 +250,16 @@ export async function fetchStoreSettings(): Promise<Partial<StoreConfig> | null>
   };
 }
 
-export async function saveStoreSettings(config: StoreConfig): Promise<boolean> {
+export interface SaveSettingsResult {
+  ok: boolean;
+  /** True when the second-number columns are missing from the database. */
+  needsMigration?: boolean;
+  message?: string;
+}
+
+export async function saveStoreSettings(config: StoreConfig): Promise<SaveSettingsResult> {
   const client = getSupabaseClient();
-  if (!client) return true;
+  if (!client) return { ok: true };
 
   const row: Record<string, unknown> = {
     id: 1,
@@ -265,6 +272,9 @@ export async function saveStoreSettings(config: StoreConfig): Promise<boolean> {
     currency: config.currency,
     show_bs_rate: config.showBsRate,
     free_delivery_threshold: config.freeDeliveryThreshold,
+    // Stamp the write. Without this the row keeps its original timestamp and a
+    // successful save looks like nothing happened.
+    updated_at: new Date().toISOString(),
   };
 
   // Only send the rate when we actually have one. The rate is filled in
@@ -282,11 +292,16 @@ export async function saveStoreSettings(config: StoreConfig): Promise<boolean> {
 
   let { data, error, count } = await write(row);
 
+
   // The two-number columns are added by a migration. If the owner has not run it
-  // yet, save everything else instead of failing the whole settings form.
+  // yet, save everything else so the rest of the form still works, but report it
+  // loudly: silently dropping the second number is what made the field look
+  // broken.
+  let needsMigration = false;
   if (error?.code === '42703' || error?.code === 'PGRST204') {
+    needsMigration = true;
     console.warn(
-      '[supabase] the second-number columns are missing. Re-run the SQL from the Supabase tab to enable them.'
+      '[supabase] the second-number columns are missing. Run the SQL from the Supabase tab to enable them.'
     );
     const withoutTwo = { ...row };
     delete withoutTwo.whatsapp_number_2;
@@ -299,7 +314,7 @@ export async function saveStoreSettings(config: StoreConfig): Promise<boolean> {
     if (error.code === '42501') {
       console.warn('[supabase] RLS rejected the settings write: sign in as admin again.');
     }
-    return false;
+    return { ok: false, needsMigration, message: error.message };
   }
 
   const affected = count ?? data?.length ?? 0;
@@ -307,10 +322,10 @@ export async function saveStoreSettings(config: StoreConfig): Promise<boolean> {
     console.warn(
       '[supabase] saveStoreSettings wrote 0 rows. The admin session is missing or RLS blocked it.'
     );
-    return false;
+    return { ok: false, needsMigration, message: 'wrote 0 rows' };
   }
 
-  return true;
+  return { ok: true, needsMigration };
 }
 
 // ---------------------------------------------------------------------------
@@ -583,6 +598,29 @@ export async function testConnection(): Promise<{ ok: boolean; message: string }
     return { ok: false, message: error.message };
   }
   return { ok: true, message: `Connected. ${count ?? 0} product rows visible.` };
+}
+
+/**
+ * Reports whether the optional newer columns exist in the database.
+ *
+ * Used by the settings form to warn before the owner types into a field whose
+ * value cannot be stored, instead of failing silently on save.
+ */
+export async function checkSchemaCapabilities(): Promise<{
+  twoNumberColumns: boolean;
+}> {
+  const client = getSupabaseClient();
+  if (!client) return { twoNumberColumns: false };
+
+  const { error } = await client
+    .from('store_settings')
+    .select('whatsapp_number_2, order_distribution')
+    .limit(1);
+
+  // 42703 = undefined column, PGRST204 = not in the schema cache.
+  const missing =
+    error?.code === '42703' || error?.code === 'PGRST204' || error?.code === '400';
+  return { twoNumberColumns: !missing };
 }
 
 // ---------------------------------------------------------------------------
