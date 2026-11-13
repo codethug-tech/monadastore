@@ -971,7 +971,7 @@ function ProductCard({
               }}>
                 ${product.price.toFixed(2)} USD
               </span>
-              {config.showBsRate && (
+              {config.showBsRate && config.bcvRate > 0 && (
                 <div style={{ fontSize: 10, color: 'var(--theme-muted)', marginTop: 1 }}>
                   Bs. {bsPrice}
                 </div>

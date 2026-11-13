@@ -4,6 +4,7 @@ import { clothingProducts as initialProducts } from './data/products';
 import { Language, translations } from './i18n/translations';
 import { StoreConfig, DEFAULT_STORE_CONFIG } from './config/storeConfig';
 import { cartLineKey, itemLineKey, addLine, increaseLine, decreaseLine, removeLine, cartCount, cartSubtotal } from './lib/cart';
+import { fetchBcvRate, getCachedBcvRate } from './lib/bcv';
 import {
   readSupabaseConfig,
   fetchProducts,
@@ -219,6 +220,61 @@ function App() {
       window.removeEventListener('online', resync);
     };
   }, [syncFromRemote]);
+
+  // Keep the BCV rate current automatically.
+  //
+  // The official rate is published once per business day, so this applies the
+  // last known value immediately (so prices are correct on the first paint),
+  // then refreshes in the background and re-runs when the tab becomes visible
+  // again or the day changes.
+  useEffect(() => {
+    let cancelled = false;
+
+    const apply = (rate: number) => {
+      if (cancelled || !(rate > 0)) return;
+      setConfig(prev => {
+        // Do not churn state (and localStorage) when nothing changed.
+        if (Math.abs(prev.bcvRate - rate) < 0.000001) return prev;
+        const merged = { ...prev, bcvRate: rate };
+        try {
+          localStorage.setItem('monada_store_config', JSON.stringify(merged));
+        } catch {
+          /* quota: the in-memory rate is still correct */
+        }
+        return merged;
+      });
+    };
+
+    // Instant: whatever this browser last saw, even if it is from yesterday.
+    const cached = getCachedBcvRate();
+    if (cached) apply(cached.rate);
+
+    const refresh = async (force = false) => {
+      const next = await fetchBcvRate({ force });
+      if (next) apply(next.rate);
+    };
+
+    void refresh();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'hidden') return;
+      void refresh();
+    };
+    const onOnline = () => void refresh(true);
+
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
+
+    // A tab left open across midnight still needs the new day's rate.
+    const midnight = setInterval(() => void refresh(), 30 * 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+      clearInterval(midnight);
+    };
+  }, []);
 
   // Persist config changes (localStorage always, Supabase when configured)
   const handleSaveConfig = (updated: StoreConfig) => {

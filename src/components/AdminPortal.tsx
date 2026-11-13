@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ClothingProduct } from '../types';
 import { StoreConfig } from '../config/storeConfig';
 import { Language } from '../i18n/translations';
+import { fetchBcvRate } from '../lib/bcv';
 import {
   SUPABASE_SQL_SCHEMA,
   readSupabaseConfig,
@@ -180,6 +181,8 @@ export default function AdminPortal({
   const [instagram, setInstagram] = useState(config.instagramUrl);
   const [tiktok, setTiktok] = useState(config.tiktokUrl);
   const [bcvRate, setBcvRate] = useState(String(config.bcvRate));
+  const [bcvBusy, setBcvBusy] = useState(false);
+  const [bcvNotice, setBcvNotice] = useState('');
   const [showBsRate, setShowBsRate] = useState(config.showBsRate);
   const [freeDelivery, setFreeDelivery] = useState(String(config.freeDeliveryThreshold));
   const [settingsNotice, setSettingsNotice] = useState('');
@@ -248,6 +251,31 @@ export default function AdminPortal({
     setAdminSession(null);
     setPasswordInput('');
     setEmailInput('');
+  };
+
+  // Pull the official rate on demand, so the owner never has to look it up.
+  const handleRefreshBcv = async () => {
+    setBcvBusy(true);
+    setBcvNotice('');
+    try {
+      const result = await fetchBcvRate({ force: true });
+      if (result && result.rate > 0) {
+        setBcvRate(String(result.rate));
+        setBcvNotice(
+          isEs
+            ? `Tasa oficial actualizada: Bs. ${result.rate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Pulsa Guardar para aplicarla.`
+            : `Official rate updated: Bs. ${result.rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Press Save to apply.`
+        );
+      } else {
+        setBcvNotice(
+          isEs
+            ? 'No se pudo obtener la tasa ahora. Se mantiene la tasa actual.'
+            : 'Could not fetch the rate right now. Keeping the current rate.'
+        );
+      }
+    } finally {
+      setBcvBusy(false);
+    }
   };
 
   const handleSaveSettings = (e: React.FormEvent) => {
@@ -2386,7 +2414,7 @@ export default function AdminPortal({
                         min="0"
                         value={bcvRate}
                         onChange={e => setBcvRate(e.target.value)}
-                        placeholder="72.50"
+                        placeholder="911.62"
                         style={{
                           width: '100%',
                           padding: '10px 14px',
@@ -2398,6 +2426,38 @@ export default function AdminPortal({
                         }}
                       />
                       <span style={{ fontSize: 11, color: 'var(--theme-muted)', marginTop: 4, display: 'block' }}>
+                        {isEs
+                          ? 'Se actualiza sola cada día con la tasa oficial del BCV, o puedes escribirla a mano.'
+                          : 'Refreshes daily from the official BCV rate, or type your own.'}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={handleRefreshBcv}
+                          disabled={bcvBusy}
+                          style={{
+                            padding: '7px 14px',
+                            borderRadius: 8,
+                            border: '1px solid var(--theme-line)',
+                            background: 'var(--theme-surface)',
+                            color: 'var(--theme-ink)',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: bcvBusy ? 'wait' : 'pointer',
+                            opacity: bcvBusy ? 0.6 : 1,
+                          }}
+                        >
+                          {bcvBusy
+                            ? (isEs ? 'Consultando…' : 'Fetching…')
+                            : (isEs ? '↻ Usar tasa oficial de hoy' : '↻ Use today\'s official rate')}
+                        </button>
+                        {bcvNotice && (
+                          <span style={{ fontSize: 11, color: 'var(--monada-sage)', fontWeight: 600 }}>
+                            {bcvNotice}
+                          </span>
+                        )}
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--theme-muted)', marginTop: 6, display: 'block' }}>
                         {isEs ? 'Ejemplo: una prenda de $89 se muestra como Bs. ' : 'Example: an $89 piece shows as Bs. '}
                         {(89 * (parseFloat(bcvRate) || 0)).toLocaleString('es-VE', {
                           minimumFractionDigits: 2,

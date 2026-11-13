@@ -14,7 +14,7 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
   whatsappNumber: '584120000000', // Owner's WhatsApp (58 + phone without +)
   instagramUrl: 'https://instagram.com/monadastore',
   tiktokUrl: 'https://tiktok.com/@monadastore',
-  bcvRate: 72.50, // Default estimated BCV rate, can be adjusted in Admin Panel
+  bcvRate: 0, // Filled automatically from the official BCV feed (src/lib/bcv.ts)
   showBsRate: true,
   currency: 'USD',
   freeDeliveryThreshold: 100,

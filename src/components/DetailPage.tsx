@@ -329,7 +329,7 @@ export default function DetailPage({
                 ${product.price.toFixed(2)} USD
               </span>
             </div>
-            {config.showBsRate && (
+            {config.showBsRate && config.bcvRate > 0 && (
               <div style={{ fontSize: 12, color: 'var(--theme-muted)', marginTop: 2, fontWeight: 500 }}>
                 ≈ Bs. {bsPrice}
               </div>
