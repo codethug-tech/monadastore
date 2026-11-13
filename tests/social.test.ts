@@ -93,6 +93,21 @@ check('isUsableSocialUrl accepts real profile links', () => {
   assert.equal(isUsableSocialUrl('https://www.instagram.com/monadastore'), true);
 });
 
+check('a stored URL containing a space is rejected (paste accident)', () => {
+  // This exact value reached the live database and would have rendered a
+  // broken link on the storefront.
+  assert.equal(isUsableSocialUrl('https://instagram.com/monada_store 1'), false);
+  assert.equal(isUsableSocialUrl('https://instagram.com/mon ada'), false);
+});
+
+check('a post URL is rejected: the icon must point at the profile', () => {
+  // "/p/abc123" is a post. Linking the storefront icon there would take
+  // customers to one photo instead of the shop's profile.
+  assert.equal(isUsableSocialUrl('https://instagram.com/p/abc123'), false);
+  // Anything past the handle is not a canonical profile URL either.
+  assert.equal(isUsableSocialUrl('https://instagram.com/monada_store/extra'), false);
+});
+
 check('isUsableSocialUrl rejects empty, junk and other hosts', () => {
   assert.equal(isUsableSocialUrl(''), false);
   assert.equal(isUsableSocialUrl(undefined), false);

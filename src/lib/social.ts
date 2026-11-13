@@ -92,7 +92,10 @@ export function normalizeSocial(
 /** True when a stored URL is a usable profile link (for the storefront). */
 export function isUsableSocialUrl(url: string | undefined | null): boolean {
   if (!url) return false;
-  return /^https:\/\/(www\.)?(instagram\.com|instagr\.am|tiktok\.com)\/[@A-Za-z0-9._-]+/.test(
+  // No whitespace is allowed anywhere: a stored value like
+  // "https://instagram.com/monada_store 1" is a paste accident that would
+  // render a broken link on the storefront.
+  return /^https:\/\/(www\.)?(instagram\.com|instagr\.am|tiktok\.com)\/[@A-Za-z0-9._-]{1,40}$/.test(
     url.trim()
   );
 }
