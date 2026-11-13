@@ -53,7 +53,16 @@ export function getSupabaseClient(): SupabaseClient | null {
     return cached.client;
   }
   const client = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: {
+      // The admin session must survive a reload, a new tab, and opening
+      // /#admin in a fresh context. With persistSession disabled the session
+      // lived only in memory, so a reload left the app writing as `anon` and
+      // every catalog write was silently rejected by RLS.
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: 'monada_auth_session',
+    },
   });
   cached = { url: supabaseUrl, key: supabaseAnonKey, client };
   return client;
@@ -62,6 +71,13 @@ export function getSupabaseClient(): SupabaseClient | null {
 /** Call after credentials change so the next getSupabaseClient() rebuilds. */
 export function resetSupabaseClient(): void {
   cached = null;
+  // A session belongs to one project: drop it so a new URL/key never tries to
+  // reuse a token minted by the old one.
+  try {
+    localStorage.removeItem('monada_auth_session');
+  } catch {
+    /* storage unavailable: nothing persisted to clear */
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -161,7 +177,13 @@ export async function saveProducts(products: ClothingProduct[]): Promise<boolean
     .from('products')
     .upsert(products.map(productToRow), { onConflict: 'id' });
   if (error) {
-    console.warn('[supabase] saveProducts failed:', error.message);
+    console.warn('[supabase] saveProducts failed:', error.message, error.code);
+    if (error.code === '42501') {
+      // RLS rejected the write: the request went out as `anon`, not an admin.
+      console.warn(
+        '[supabase] RLS rejected the catalog write, so the admin session is missing. Sign in again.'
+      );
+    }
     return false;
   }
   return true;

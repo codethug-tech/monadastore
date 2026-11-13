@@ -242,7 +242,11 @@ function App() {
     }
   };
 
-  // Persist products changes
+  // Persist products changes.
+  //
+  // The toast must not claim success before the database write resolves: that
+  // is what hid a rejected write behind a product that only existed in
+  // localStorage, so it showed on the device that made it and nowhere else.
   const handleSaveProducts = (updated: ClothingProduct[]) => {
     setProducts(updated);
     let storedLocally = true;
@@ -253,26 +257,46 @@ function App() {
       // still live in memory and syncs to Supabase, so warn instead of dying.
       storedLocally = false;
     }
+
+    if (!readSupabaseConfig().isConnected) {
+      showToast(
+        lang === 'es' ? 'Catálogo actualizado' : 'Catalog updated',
+        storedLocally
+          ? undefined
+          : lang === 'es'
+            ? 'Aviso: sin espacio local.'
+            : 'Warning: local storage full.'
+      );
+      return;
+    }
+
+    const pendingSub =
+      lang === 'es' ? 'Guardando en la nube…' : 'Saving to the cloud…';
     showToast(
       lang === 'es' ? 'Catálogo actualizado' : 'Catalog updated',
-      storedLocally
-        ? undefined
-        : lang === 'es'
-          ? 'Aviso: sin espacio local. Conecta Supabase para guardar las fotos.'
-          : 'Warning: local storage full. Connect Supabase to store photos.'
+      storedLocally ? pendingSub : lang === 'es'
+        ? 'Sin espacio local. Guardando en la nube…'
+        : 'Local storage full. Saving to the cloud…'
     );
-    if (readSupabaseConfig().isConnected) {
-      saveProducts(updated).then(ok => {
-        if (!ok) {
-          showToast(
-            lang === 'es' ? 'Guardado localmente' : 'Saved locally',
-            lang === 'es'
-              ? 'Supabase rechazó el catálogo. Revisa las credenciales.'
-              : 'Supabase rejected the catalog write. Check your credentials.'
-          );
-        }
-      });
-    }
+
+    saveProducts(updated).then(ok => {
+      if (ok) {
+        showToast(
+          lang === 'es' ? 'Catálogo publicado' : 'Catalog published',
+          lang === 'es'
+            ? 'Visible en todos los dispositivos.'
+            : 'Visible on every device.'
+        );
+      } else {
+        // Most likely: the admin session expired, so RLS rejected the write.
+        showToast(
+          lang === 'es' ? 'No se publicó' : 'Not published',
+          lang === 'es'
+            ? 'Solo en este navegador. Inicia sesión de nuevo en Admin y vuelve a guardar.'
+            : 'This browser only. Sign in to Admin again and re-save.'
+        );
+      }
+    });
   };
 
   // Deleting a piece must remove it from the database explicitly, because
