@@ -138,8 +138,16 @@ export default function CheckoutModal({
 
     // Record the order in Supabase first (no-op when not configured), so the
     // shop keeps a ledger even if the customer never sends the WhatsApp message.
-    // Not awaited: the WhatsApp handoff must not wait on the network.
-    void insertOrder(buildOrderPayload(draft));
+    // Not awaited: the WhatsApp handoff must not wait on the network. The
+    // failure is logged rather than swallowed, so a missing ledger entry is
+    // traceable instead of invisible.
+    void insertOrder(buildOrderPayload(draft)).then(ok => {
+      if (!ok) {
+        console.warn(
+          '[checkout] the order was not saved to the database. The WhatsApp handoff still continues, but this entry will be missing from the admin ledger.'
+        );
+      }
+    });
 
     // Direct redirect to WhatsApp
     const opened = window.open(url, '_blank');

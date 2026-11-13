@@ -441,9 +441,21 @@ export async function updateOrderStatus(
 ): Promise<boolean> {
   const client = getSupabaseClient();
   if (!client) return false;
-  const { error } = await client.from('orders').update({ status }).eq('id', id);
+  const { data, error, count } = await client
+    .from('orders')
+    .update({ status })
+    .eq('id', id)
+    .select('id');
   if (error) {
-    console.warn('[supabase] updateOrderStatus failed:', error.message);
+    console.warn('[supabase] updateOrderStatus failed:', error.message, error.code);
+    if (error.code === '42501') {
+      console.warn('[supabase] RLS rejected the order update: sign in as admin again.');
+    }
+    return false;
+  }
+  // A blocked UPDATE can return HTTP 200 with zero affected rows.
+  if ((count ?? data?.length ?? 0) === 0) {
+    console.warn('[supabase] updateOrderStatus changed 0 rows; the admin session is missing.');
     return false;
   }
   return true;
@@ -452,9 +464,17 @@ export async function updateOrderStatus(
 export async function deleteOrder(id: string): Promise<boolean> {
   const client = getSupabaseClient();
   if (!client) return false;
-  const { error } = await client.from('orders').delete().eq('id', id);
+  const { data, error, count } = await client
+    .from('orders')
+    .delete()
+    .eq('id', id)
+    .select('id');
   if (error) {
-    console.warn('[supabase] deleteOrder failed:', error.message);
+    console.warn('[supabase] deleteOrder failed:', error.message, error.code);
+    return false;
+  }
+  if ((count ?? data?.length ?? 0) === 0) {
+    console.warn('[supabase] deleteOrder removed 0 rows; the admin session is missing.');
     return false;
   }
   return true;

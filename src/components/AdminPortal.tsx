@@ -1401,12 +1401,18 @@ export default function AdminPortal({
                     }}>
                       <IconReceipt size={32} style={{ color: 'var(--theme-muted)', marginBottom: 10 }} />
                       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
-                        {isEs ? 'Todavía no hay pedidos' : 'No orders yet'}
+                        {!isAuthenticated
+                          ? (isEs ? 'Inicia sesión para ver los pedidos' : 'Sign in to see orders')
+                          : (isEs ? 'Todavía no hay pedidos' : 'No orders yet')}
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--theme-muted)' }}>
-                        {isEs
-                          ? 'Cada pedido enviado por WhatsApp aparecerá aquí automáticamente.'
-                          : 'Every order sent through WhatsApp will appear here automatically.'}
+                        {!isAuthenticated
+                          ? (isEs
+                              ? 'Los pedidos solo los puede leer un administrador con sesión iniciada. Sin sesión, la base de datos devuelve una lista vacía.'
+                              : 'Only a signed-in admin can read orders. Without a session the database returns an empty list.')
+                          : (isEs
+                              ? 'Cada pedido enviado por WhatsApp aparecerá aquí automáticamente.'
+                              : 'Every order sent through WhatsApp will appear here automatically.')}
                       </div>
                     </div>
                   )}
