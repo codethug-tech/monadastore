@@ -304,11 +304,18 @@ export default function AdminPortal({
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // The rate is maintained automatically now, so an empty field must not
+    // block saving the rest of the form. A typed value still has to be valid.
+    const rateTyped = bcvRate.trim() !== '';
     const rate = parseFloat(bcvRate);
-    if (!Number.isFinite(rate) || rate <= 0) {
+    if (rateTyped && (!Number.isFinite(rate) || rate <= 0)) {
       setFormError(isEs ? 'La tasa BCV debe ser un número mayor que cero' : 'BCV rate must be a number greater than zero');
       return;
     }
+    // Keep the rate already in use when the field is blank.
+    const effectiveRate = rateTyped ? rate : config.bcvRate;
+
     const threshold = parseFloat(freeDelivery);
     if (!Number.isFinite(threshold) || threshold < 0) {
       setFormError(isEs ? 'El umbral de envío gratis debe ser cero o mayor' : 'Free delivery threshold must be zero or greater');
@@ -340,7 +347,7 @@ export default function AdminPortal({
       whatsappNumber: waStatus.digits,
       instagramUrl: igStatus.url,
       tiktokUrl: ttStatus.url,
-      bcvRate: rate,
+      bcvRate: effectiveRate,
       showBsRate,
       freeDeliveryThreshold: threshold,
     });

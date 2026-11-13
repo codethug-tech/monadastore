@@ -252,17 +252,23 @@ export async function saveStoreSettings(config: StoreConfig): Promise<boolean> {
   const client = getSupabaseClient();
   if (!client) return true;
 
-  const row = {
+  const row: Record<string, unknown> = {
     id: 1,
     store_name: config.storeName,
     whatsapp_number: config.whatsappNumber,
     instagram_url: config.instagramUrl,
     tiktok_url: config.tiktokUrl,
     currency: config.currency,
-    bcv_rate: config.bcvRate,
     show_bs_rate: config.showBsRate,
     free_delivery_threshold: config.freeDeliveryThreshold,
   };
+
+  // Only send the rate when we actually have one. The rate is filled in
+  // automatically, so a saved form on a cold browser could otherwise write 0
+  // and replace a good rate (along with any manual override) with zero.
+  if (Number.isFinite(config.bcvRate) && config.bcvRate > 0) {
+    row.bcv_rate = config.bcvRate;
+  }
 
   // PostgREST reports an UPDATE that RLS silently filtered out as HTTP 200 with
   // zero affected rows and NO error. Checking only `error` therefore claimed
