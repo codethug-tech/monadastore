@@ -236,6 +236,8 @@ export async function fetchStoreSettings(): Promise<Partial<StoreConfig> | null>
   return {
     storeName: data.store_name ?? undefined,
     whatsappNumber: data.whatsapp_number ?? undefined,
+    whatsappNumber2: data.whatsapp_number_2 ?? undefined,
+    orderDistribution: data.order_distribution ?? undefined,
     instagramUrl: data.instagram_url ?? undefined,
     tiktokUrl: data.tiktok_url ?? undefined,
     currency: data.currency ?? undefined,
@@ -256,6 +258,8 @@ export async function saveStoreSettings(config: StoreConfig): Promise<boolean> {
     id: 1,
     store_name: config.storeName,
     whatsapp_number: config.whatsappNumber,
+    whatsapp_number_2: config.whatsappNumber2 ?? '',
+    order_distribution: config.orderDistribution ?? 'round_robin',
     instagram_url: config.instagramUrl,
     tiktok_url: config.tiktokUrl,
     currency: config.currency,
@@ -270,14 +274,25 @@ export async function saveStoreSettings(config: StoreConfig): Promise<boolean> {
     row.bcv_rate = config.bcvRate;
   }
 
-  // PostgREST reports an UPDATE that RLS silently filtered out as HTTP 200 with
-  // zero affected rows and NO error. Checking only `error` therefore claimed
-  // success for a write that changed nothing, which is exactly how a new
-  // WhatsApp number appeared to save and never reached the database.
-  const { data, error, count } = await client
-    .from('store_settings')
-    .upsert(row, { onConflict: 'id', count: 'exact' })
-    .select('id');
+  const write = async (payload: Record<string, unknown>) =>
+    client
+      .from('store_settings')
+      .upsert(payload, { onConflict: 'id', count: 'exact' })
+      .select('id');
+
+  let { data, error, count } = await write(row);
+
+  // The two-number columns are added by a migration. If the owner has not run it
+  // yet, save everything else instead of failing the whole settings form.
+  if (error?.code === '42703' || error?.code === 'PGRST204') {
+    console.warn(
+      '[supabase] the second-number columns are missing. Re-run the SQL from the Supabase tab to enable them.'
+    );
+    const withoutTwo = { ...row };
+    delete withoutTwo.whatsapp_number_2;
+    delete withoutTwo.order_distribution;
+    ({ data, error, count } = await write(withoutTwo));
+  }
 
   if (error) {
     console.warn('[supabase] saveStoreSettings failed:', error.message, error.code);
@@ -313,6 +328,8 @@ export interface OrderPayload {
   subtotal: number;
   discount: number;
   total: number;
+  /** Which of the owner's WhatsApp numbers this order was routed to. */
+  assignedNumber?: string;
   items: {
     productId: number;
     name: string;
@@ -327,7 +344,8 @@ export interface OrderPayload {
 export async function insertOrder(order: OrderPayload): Promise<boolean> {
   const client = getSupabaseClient();
   if (!client) return true;
-  const { error } = await client.from('orders').insert({
+
+  const row: Record<string, unknown> = {
     id: order.id,
     customer_name: order.customerName,
     customer_phone: order.customerPhone,
@@ -340,9 +358,24 @@ export async function insertOrder(order: OrderPayload): Promise<boolean> {
     total: order.total,
     status: 'pending_whatsapp',
     items: order.items,
-  });
+  };
+  if (order.assignedNumber) row.assigned_number = order.assignedNumber;
+
+  let { error } = await client.from('orders').insert(row);
+
+  // assigned_number is added by a migration. Rather than lose the order when it
+  // has not been run yet, retry without it: the order itself matters more.
+  if (error?.code === '42703' || error?.code === 'PGRST204') {
+    console.warn(
+      '[supabase] orders.assigned_number is missing; saving the order without it. Re-run the SQL to record routing.'
+    );
+    const plain = { ...row };
+    delete plain.assigned_number;
+    ({ error } = await client.from('orders').insert(plain));
+  }
+
   if (error) {
-    console.warn('[supabase] insertOrder failed:', error.message);
+    console.warn('[supabase] insertOrder failed:', error.message, error.code);
     return false;
   }
   return true;
@@ -382,6 +415,8 @@ export interface OrderRecord {
   total: number;
   status: OrderStatus;
   items: OrderPayload['items'];
+  /** Which of the owner's WhatsApp numbers this order was routed to. */
+  assignedNumber: string;
   createdAt: string;
 }
 
@@ -398,6 +433,7 @@ interface OrderRow {
   total: number | null;
   status: string | null;
   items: OrderPayload['items'] | null;
+  assigned_number: string | null;
   created_at: string | null;
 }
 
@@ -416,6 +452,7 @@ const rowToOrder = (row: OrderRow): OrderRecord => ({
     ? row.status
     : 'pending_whatsapp') as OrderStatus,
   items: row.items ?? [],
+  assignedNumber: row.assigned_number ?? '',
   createdAt: row.created_at ?? '',
 });
 
@@ -589,22 +626,32 @@ CREATE TABLE IF NOT EXISTS public.orders (
   total NUMERIC(10, 2) NOT NULL,
   status TEXT DEFAULT 'pending_whatsapp',
   items JSONB NOT NULL,
+  assigned_number TEXT,
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Added later: which WhatsApp number received each order.
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS assigned_number TEXT;
 
 -- 3. STORE SETTINGS (single row, id = 1)
 CREATE TABLE IF NOT EXISTS public.store_settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   store_name TEXT DEFAULT 'Monada Store',
   whatsapp_number TEXT DEFAULT '584120000000',
-  instagram_url TEXT DEFAULT 'https://instagram.com/monadastore',
-  tiktok_url TEXT DEFAULT 'https://tiktok.com/@monadastore',
+  whatsapp_number_2 TEXT DEFAULT '',
+  order_distribution TEXT DEFAULT 'round_robin',
+  instagram_url TEXT DEFAULT '',
+  tiktok_url TEXT DEFAULT '',
   currency TEXT DEFAULT 'USD',
   bcv_rate NUMERIC(12, 2) DEFAULT 72.50,
   show_bs_rate BOOLEAN DEFAULT true,
   free_delivery_threshold NUMERIC(10, 2) DEFAULT 100,
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Added later: a second order number and how orders are split between them.
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS whatsapp_number_2 TEXT DEFAULT '';
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS order_distribution TEXT DEFAULT 'round_robin';
 
 -- 4. PRODUCT IMAGE STORAGE
 -- Creates the public bucket the admin panel uploads photos into.

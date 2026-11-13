@@ -177,8 +177,17 @@ export default function AdminPortal({
   // Store Settings Form State
   const [storeName, setStoreName] = useState(config.storeName);
   const [whatsapp, setWhatsapp] = useState(config.whatsappNumber);
+  const [whatsapp2, setWhatsapp2] = useState(config.whatsappNumber2 ?? '');
+  const [orderDistribution, setOrderDistribution] = useState<
+    'round_robin' | 'primary_only' | 'alternate_daily'
+  >(config.orderDistribution ?? 'round_robin');
   // Live validation: the owner sees exactly where orders will land.
   const waStatus = normalizeWhatsApp(whatsapp);
+  // The second number is optional: blank means every order goes to the first.
+  const wa2Raw = whatsapp2.trim();
+  const wa2Status = normalizeWhatsApp(wa2Raw);
+  const wa2Active = wa2Raw !== '' && wa2Status.valid;
+  const wa2Problem = wa2Raw !== '' && !wa2Status.valid;
   const [instagram, setInstagram] = useState(config.instagramUrl);
   const [tiktok, setTiktok] = useState(config.tiktokUrl);
   // Normalise as the owner types, so they see the exact link customers get.
@@ -205,6 +214,8 @@ export default function AdminPortal({
   useEffect(() => {
     setStoreName(config.storeName);
     setWhatsapp(config.whatsappNumber);
+    setWhatsapp2(config.whatsappNumber2 ?? '');
+    setOrderDistribution(config.orderDistribution ?? 'round_robin');
     setInstagram(config.instagramUrl);
     setTiktok(config.tiktokUrl);
     setBcvRate(config.bcvRate > 0 ? String(config.bcvRate) : '');
@@ -213,6 +224,8 @@ export default function AdminPortal({
   }, [
     config.storeName,
     config.whatsappNumber,
+    config.whatsappNumber2,
+    config.orderDistribution,
     config.instagramUrl,
     config.tiktokUrl,
     config.bcvRate,
@@ -330,6 +343,23 @@ export default function AdminPortal({
       );
       return;
     }
+    // A second number is optional, but if one was typed it must be usable.
+    if (wa2Problem) {
+      setFormError(
+        isEs
+          ? `Segundo número inválido. ${wa2Status.error}`
+          : `Second number is invalid. ${wa2Status.error}`
+      );
+      return;
+    }
+    if (wa2Active && wa2Status.digits === waStatus.digits) {
+      setFormError(
+        isEs
+          ? 'El segundo número es igual al primero. Usa dos números distintos o deja el segundo vacío.'
+          : 'The second number is the same as the first. Use two different numbers, or leave the second empty.'
+      );
+      return;
+    }
     if (!igStatus.valid) {
       setFormError(
         isEs ? `Instagram: ${igStatus.error}` : `Instagram: ${igStatus.error}`
@@ -345,6 +375,8 @@ export default function AdminPortal({
       ...config,
       storeName: storeName.trim() || 'Monada Store',
       whatsappNumber: waStatus.digits,
+      whatsappNumber2: wa2Active ? wa2Status.digits : '',
+      orderDistribution,
       instagramUrl: igStatus.url,
       tiktokUrl: ttStatus.url,
       bcvRate: effectiveRate,
@@ -1507,6 +1539,26 @@ export default function AdminPortal({
                               <IconTruck size={13} style={{ color: 'var(--theme-muted)' }} />
                               <span>{order.courier || '—'}</span>
                             </div>
+                            {order.assignedNumber && (
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                padding: '2px 9px',
+                                borderRadius: 20,
+                                background: 'var(--monada-sage-soft)',
+                                color: 'var(--monada-sage)',
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}>
+                                <IconWhatsApp size={11} />
+                                <span>
+                                  {order.assignedNumber === normalizeWhatsApp(config.whatsappNumber).digits
+                                    ? (isEs ? 'Número 1' : 'Number 1')
+                                    : (isEs ? 'Número 2' : 'Number 2')}
+                                </span>
+                              </div>
+                            )}
                           </div>
 
                           {order.cityAddress && (
@@ -2326,7 +2378,7 @@ export default function AdminPortal({
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                       <IconWhatsApp size={16} style={{ color: 'var(--whatsapp-green)' }} />
-                      <span>{isEs ? 'Número de WhatsApp Business' : 'WhatsApp Business Number'}</span>
+                      <span>{isEs ? 'WhatsApp — número principal' : 'WhatsApp — primary number'}</span>
                     </label>
                     <input
                       type="tel"
@@ -2344,8 +2396,6 @@ export default function AdminPortal({
                         fontSize: 13,
                       }}
                     />
-
-                    {/* Live feedback: show exactly what customers will be sent to */}
                     {waStatus.valid ? (
                       <div style={{
                         marginTop: 6,
@@ -2378,13 +2428,102 @@ export default function AdminPortal({
                         {waStatus.error}
                       </div>
                     )}
-
-                    <span style={{ fontSize: 11, color: 'var(--theme-muted)', marginTop: 6, display: 'block', lineHeight: 1.5 }}>
-                      {isEs
-                        ? 'Escribe tu número como lo marcas normalmente: +58 412 123 4567, 0412-1234567 o 4121234567. Lo convertimos al formato internacional automáticamente.'
-                        : 'Type your number however you normally dial it: +58 412 123 4567, 0412-1234567 or 4121234567. We convert it to international format automatically.'}
-                    </span>
                   </div>
+
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      <IconWhatsApp size={16} style={{ color: 'var(--whatsapp-green)' }} />
+                      <span>{isEs ? 'WhatsApp — número secundario (opcional)' : 'WhatsApp — secondary number (optional)'}</span>
+                    </label>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      value={whatsapp2}
+                      onChange={e => setWhatsapp2(e.target.value)}
+                      placeholder="+58 414 987 6543"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: `1px solid ${wa2Problem ? 'var(--monada-danger)' : 'var(--theme-line)'}`,
+                        background: 'var(--theme-bg)',
+                        color: 'var(--theme-ink)',
+                        fontSize: 13,
+                      }}
+                    />
+                    {wa2Problem ? (
+                      <div style={{
+                        marginTop: 6,
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: 'rgba(220, 38, 38, 0.08)',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: 'var(--monada-danger)',
+                      }}>
+                        {wa2Status.error}
+                      </div>
+                    ) : wa2Active ? (
+                      <div style={{
+                        marginTop: 6,
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: 'var(--monada-sage-soft)',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: 'var(--monada-sage)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}>
+                        <IconCheck size={12} />
+                        <span>
+                          {isEs ? 'Los pedidos se repartirán también a ' : 'Orders will also be routed to '}
+                          <strong>{wa2Status.pretty}</strong>
+                        </span>
+                      </div>
+                    ) : (
+                      <div style={{
+                        marginTop: 6,
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: 'var(--theme-surface-soft)',
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: 'var(--theme-muted)',
+                      }}>
+                        {isEs
+                          ? 'Déjalo vacío si solo usas un número.'
+                          : 'Leave empty if you only use one number.'}
+                      </div>
+                    )}
+                  </div>
+
+                  {wa2Active && (
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                        {isEs ? 'Cómo se reparten los pedidos' : 'How orders are split'}
+                      </label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {([
+                          ['round_robin', isEs ? 'Turno alterno — cada pedido va a un número distinto' : 'Round robin — each order goes to a different number'],
+                          ['alternate_daily', isEs ? 'Alternar por día — hoy un número, mañana el otro' : 'Alternate by day — one today, the other tomorrow'],
+                          ['primary_only', isEs ? 'Solo el principal — el secundario no recibe pedidos' : 'Primary only — the secondary never receives orders'],
+                        ] as const).map(([key, label]) => (
+                          <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 12, color: 'var(--theme-ink)' }}>
+                            <input
+                              type="radio"
+                              name="order-distribution"
+                              checked={orderDistribution === key}
+                              onChange={() => setOrderDistribution(key)}
+                              style={{ marginTop: 2, accentColor: 'var(--monada-sage)' }}
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     <div>

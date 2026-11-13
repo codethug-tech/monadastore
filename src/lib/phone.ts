@@ -114,6 +114,52 @@ export function isWhatsAppConfigured(raw: string): boolean {
   return normalizeWhatsApp(raw).valid;
 }
 
+/** True when at least one real (non-placeholder) order number is configured. */
+export function hasAnyWhatsAppNumber(...numbers: string[]): boolean {
+  return numbers.some(n => isWhatsAppConfigured(n));
+}
+
+/**
+ * Picks which WhatsApp number an order goes to.
+ *
+ * With one number, every order goes there. With two, the choice is a stable
+ * function of the order id: the same order always resolves to the same number,
+ * which is what round-robin needs without storing any counter.
+ *
+ * `primary_only` routes everything to the first number even when the second
+ * exists (used when the owner wants a single inbox after all).
+ */
+export function pickOrderNumber(
+  orderId: string,
+  primary: string,
+  secondary: string,
+  mode: 'round_robin' | 'primary_only' | 'alternate_daily'
+): string {
+  const primaryOk = isWhatsAppConfigured(primary);
+  const secondaryOk = isWhatsAppConfigured(secondary);
+
+  // Never route a real order to a known-bad number. If only one side is usable,
+  // everything goes there regardless of the chosen distribution mode.
+  if (!primaryOk && secondaryOk) return secondary;
+  if (primaryOk && !secondaryOk) return primary;
+  if (!primaryOk && !secondaryOk) return primary;
+
+  if (mode === 'primary_only') return primary;
+
+  if (mode === 'alternate_daily') {
+    // Even/odd day in UTC: today to number 1, tomorrow to number 2.
+    const day = Math.floor(Date.now() / 86400000);
+    return day % 2 === 0 ? primary : secondary;
+  }
+
+  // round_robin: hash the order id so each order deterministically alternates.
+  let h = 0;
+  for (let i = 0; i < orderId.length; i++) {
+    h = (h * 31 + orderId.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h) % 2 === 0 ? primary : secondary;
+}
+
 /**
  * Builds the wa.me link. Returns null when the number is not usable, so callers
  * can show an error instead of opening a chat with nobody.

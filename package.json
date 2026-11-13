@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "tsx tests/cart.test.ts && tsx tests/order.test.ts && tsx tests/image.test.ts && tsx tests/phone.test.ts && tsx tests/checkout.test.ts && tsx tests/categories.test.ts && tsx tests/bcv.test.ts && tsx tests/social.test.ts",
+    "test": "tsx tests/cart.test.ts && tsx tests/order.test.ts && tsx tests/image.test.ts && tsx tests/phone.test.ts && tsx tests/checkout.test.ts && tsx tests/categories.test.ts && tsx tests/bcv.test.ts && tsx tests/social.test.ts && tsx tests/routing.test.ts",
     "verify:schema": "node scripts/verify-schema.mjs",
     "verify:supabase": "node scripts/verify-supabase.mjs",
     "verify:security": "node scripts/verify-security.mjs",

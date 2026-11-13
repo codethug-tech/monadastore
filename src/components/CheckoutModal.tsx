@@ -3,6 +3,7 @@ import { ClothingCartItem } from '../types';
 import { Language, translations } from '../i18n/translations';
 import { StoreConfig } from '../config/storeConfig';
 import { insertOrder } from '../services/supabase';
+import { pickOrderNumber, normalizeWhatsApp } from '../lib/phone';
 import {
   generateOrderId,
   buildWhatsAppMessage,
@@ -123,7 +124,15 @@ export default function CheckoutModal({
     };
 
     const message = buildWhatsAppMessage(draft);
-    const url = buildWhatsAppUrl(config.whatsappNumber, message);
+    // With two numbers configured, the order is distributed to one of them.
+    // The choice is stable per order id, so it never changes once assigned.
+    const targetNumber = pickOrderNumber(
+      orderId,
+      config.whatsappNumber,
+      config.whatsappNumber2,
+      config.orderDistribution
+    );
+    const url = buildWhatsAppUrl(targetNumber, message);
 
     // The shop owner has not set a real business number yet. Sending the order
     // would open a chat with a stranger, so stop and say so plainly.
@@ -141,7 +150,7 @@ export default function CheckoutModal({
     // Not awaited: the WhatsApp handoff must not wait on the network. The
     // failure is logged rather than swallowed, so a missing ledger entry is
     // traceable instead of invisible.
-    void insertOrder(buildOrderPayload(draft)).then(ok => {
+    void insertOrder(buildOrderPayload(draft, normalizeWhatsApp(targetNumber).digits)).then(ok => {
       if (!ok) {
         console.warn(
           '[checkout] the order was not saved to the database. The WhatsApp handoff still continues, but this entry will be missing from the admin ledger.'

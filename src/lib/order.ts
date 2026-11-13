@@ -144,7 +144,10 @@ ${L.closing}`;
 }
 
 /** The durable ledger row written to Supabase alongside the WhatsApp handoff. */
-export function buildOrderPayload(draft: OrderDraft): OrderPayload {
+export function buildOrderPayload(
+  draft: OrderDraft,
+  assignedNumber?: string
+): OrderPayload {
   return {
     id: draft.orderId,
     customerName: draft.customerName.trim(),
@@ -156,6 +159,9 @@ export function buildOrderPayload(draft: OrderDraft): OrderPayload {
     subtotal: draft.subTotal,
     discount: discountAmountFor(draft.subTotal, draft.discountPercent),
     total: totalFor(draft.subTotal, draft.discountPercent),
+    // Which of the owner's numbers this order was routed to, so the ledger can
+    // show who is responsible for it.
+    assignedNumber: assignedNumber,
     items: draft.cartItems.map(item => ({
       productId: item.product.id,
       name: item.product.name,
