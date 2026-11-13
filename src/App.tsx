@@ -15,13 +15,12 @@ import {
 import StorePage from './components/StorePage';
 import DetailPage from './components/DetailPage';
 import CartPage from './components/CartPage';
-import WishlistPage from './components/WishlistPage';
 import CheckoutModal from './components/CheckoutModal';
 import SizeGuideModal from './components/SizeGuideModal';
 import AdminPortal from './components/AdminPortal';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
 
-type Page = 'store' | 'detail' | 'cart' | 'wishlist';
+type Page = 'store' | 'detail' | 'cart';
 
 function App() {
   const [page, setPage] = useState<Page>('store');
@@ -139,50 +138,87 @@ function App() {
   // loading state instead of briefly claiming there are no products.
   const [catalogLoading, setCatalogLoading] = useState(() => readSupabaseConfig().isConnected);
 
-  // Boot sync: pull catalog + settings from Supabase when it is configured.
-  // If the remote catalog is empty, push what we have locally so the first
-  // connection seeds the database instead of blanking the storefront.
+  // Pull catalog + settings from Supabase.
+  //
+  // `seedWhenEmpty` is only true on the very first boot: on that first
+  // connection an empty remote table gets filled from whatever this browser
+  // already has. Later re-syncs never write, so a phone holding an old catalog
+  // can never overwrite products added from another device.
+  const syncFromRemote = useCallback(async (seedWhenEmpty: boolean): Promise<void> => {
+    if (!readSupabaseConfig().isConnected) return;
+
+    const [remoteProducts, remoteSettings] = await Promise.all([
+      fetchProducts(),
+      fetchStoreSettings(),
+    ]);
+
+    if (remoteProducts && remoteProducts.length > 0) {
+      // The database is the source of truth. Replace the local snapshot so a
+      // product added on another device shows up here too.
+      setProducts(remoteProducts);
+      try {
+        localStorage.setItem('monada_custom_products', JSON.stringify(remoteProducts));
+      } catch {
+        /* quota: the in-memory catalog is still correct */
+      }
+    } else if (remoteProducts && remoteProducts.length === 0 && seedWhenEmpty) {
+      // Empty remote table on first boot: seed it from this browser.
+      await saveProducts(productsRef.current);
+    }
+    // remoteProducts === null means the read failed; keep the local catalog
+    // rather than blanking the storefront.
+
+    if (remoteSettings) {
+      setConfig(prev => {
+        const merged = { ...prev, ...remoteSettings };
+        localStorage.setItem('monada_store_config', JSON.stringify(merged));
+        return merged;
+      });
+    }
+  }, []);
+
+  // Boot sync, then keep the catalog fresh while the page stays open.
+  //
+  // Phones usually keep the tab alive in the background, so a product added from
+  // the admin portal never appeared until a hard refresh. Re-syncing whenever the
+  // page becomes visible again, regains focus, or the network returns makes the
+  // storefront catch up without a reload.
   useEffect(() => {
     if (!readSupabaseConfig().isConnected) {
       setCatalogLoading(false);
       return;
     }
+
     let cancelled = false;
-
-    (async () => {
+    const run = async (seedWhenEmpty: boolean) => {
       try {
-        const [remoteProducts, remoteSettings] = await Promise.all([
-          fetchProducts(),
-          fetchStoreSettings(),
-        ]);
-        if (cancelled) return;
-
-        if (remoteProducts && remoteProducts.length > 0) {
-          setProducts(remoteProducts);
-          localStorage.setItem('monada_custom_products', JSON.stringify(remoteProducts));
-        } else if (remoteProducts && remoteProducts.length === 0) {
-          // Empty remote table: seed it from whatever this browser already has.
-          await saveProducts(productsRef.current);
-        }
-        // remoteProducts === null means the read failed; keep the local catalog
-        // rather than blanking the storefront.
-
-        if (remoteSettings) {
-          setConfig(prev => {
-            const merged = { ...prev, ...remoteSettings };
-            localStorage.setItem('monada_store_config', JSON.stringify(merged));
-            return merged;
-          });
-        }
+        await syncFromRemote(seedWhenEmpty);
+      } catch (err) {
+        console.warn('[app] catalog sync failed:', err);
       } finally {
         if (!cancelled) setCatalogLoading(false);
       }
-    })();
+    };
+
+    // First load: pull, and seed the database if it has never been filled.
+    void run(true);
+
+    const resync = () => {
+      if (document.visibilityState === 'hidden') return;
+      void run(false);
+    };
+
+    document.addEventListener('visibilitychange', resync);
+    window.addEventListener('focus', resync);
+    window.addEventListener('online', resync);
 
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', resync);
+      window.removeEventListener('focus', resync);
+      window.removeEventListener('online', resync);
     };
-  }, []);
+  }, [syncFromRemote]);
 
   // Persist config changes (localStorage always, Supabase when configured)
   const handleSaveConfig = (updated: StoreConfig) => {
@@ -281,18 +317,6 @@ function App() {
   };
 
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
-  const wishlistCount = products.filter(p => p.isFavorite).length;
-  const toggleFavorite = useCallback((product: ClothingProduct) => {
-    const isFavNow = !product.isFavorite;
-    setProducts(prev =>
-      prev.map(p => (p.id === product.id ? { ...p, isFavorite: isFavNow } : p))
-    );
-    showToast(
-      isFavNow ? t.savedToWishlist : t.removedFromWishlist,
-      product.name
-    );
-  }, [t]);
-
   const addToCart = useCallback((product: ClothingProduct, size?: string, color?: string) => {
     const chosenSize = size || product.sizes?.[0] || product.size;
     const chosenColor = color || product.colors?.[0]?.name;
@@ -377,7 +401,6 @@ function App() {
           products={products}
           loading={catalogLoading}
           cartCount={cartCount}
-          wishlistCount={wishlistCount}
           lang={lang}
           theme={theme}
           config={config}
@@ -385,9 +408,7 @@ function App() {
           onToggleTheme={toggleTheme}
           onOpenAdmin={() => setIsAdminOpen(true)}
           onProductTap={openDetail}
-          onFavoriteTap={toggleFavorite}
           onCartTap={() => { setPage('cart'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          onWishlistTap={() => { setPage('wishlist'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         />
       )}
 
@@ -398,7 +419,6 @@ function App() {
           config={config}
           onBack={() => setPage('store')}
           onAddToCart={(p, sz, col) => addToCart(p, sz, col)}
-          onFavoriteTap={() => toggleFavorite(currentDetailProduct)}
           onOpenSizeGuide={() => setIsSizeGuideOpen(true)}
         />
       )}
@@ -413,17 +433,6 @@ function App() {
           onDecrease={decreaseQuantity}
           onRemove={removeFromCart}
           onOpenCheckout={() => setIsCheckoutOpen(true)}
-        />
-      )}
-
-      {page === 'wishlist' && (
-        <WishlistPage
-          products={products}
-          lang={lang}
-          onBack={() => setPage('store')}
-          onProductTap={openDetail}
-          onFavoriteTap={toggleFavorite}
-          onAddToCart={p => addToCart(p)}
         />
       )}
 

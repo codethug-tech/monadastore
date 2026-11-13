@@ -19,7 +19,6 @@ import {
   IconTikTok,
   IconWhatsApp,
   IconBag,
-  IconHeart,
   IconLock,
 } from './Icons';
 
@@ -28,7 +27,6 @@ interface StorePageProps {
   /** True while the first catalog fetch is still in flight. */
   loading?: boolean;
   cartCount: number;
-  wishlistCount: number;
   lang: Language;
   theme: 'light' | 'dark';
   config: StoreConfig;
@@ -36,16 +34,13 @@ interface StorePageProps {
   onToggleTheme: () => void;
   onOpenAdmin: () => void;
   onProductTap: (product: ClothingProduct) => void;
-  onFavoriteTap: (product: ClothingProduct) => void;
   onCartTap: () => void;
-  onWishlistTap: () => void;
 }
 
 export default function StorePage({
   products,
   loading = false,
   cartCount,
-  wishlistCount,
   lang,
   theme,
   config,
@@ -53,9 +48,7 @@ export default function StorePage({
   onToggleTheme,
   onOpenAdmin,
   onProductTap,
-  onFavoriteTap,
   onCartTap,
-  onWishlistTap,
 }: StorePageProps) {
   const t = translations[lang];
   const isMobile = useIsMobile();
@@ -289,7 +282,7 @@ export default function StorePage({
             />
           </div>
 
-          {/* Right Actions: Socials, Wishlist & Cart */}
+          {/* Right Actions: Socials & Bag */}
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 8, flexShrink: 0 }}>
             {/* Instagram Link — hidden on mobile to keep the header on one line */}
             {config.instagramUrl && !isMobile && (
@@ -314,47 +307,6 @@ export default function StorePage({
                 <IconInstagram size={17} />
               </a>
             )}
-
-            {/* Wishlist */}
-            <button
-              onClick={onWishlistTap}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: '50%',
-                background: 'var(--theme-surface)',
-                border: '1px solid var(--theme-line)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                position: 'relative',
-                color: 'var(--theme-ink)',
-              }}
-              title={t.navSaved}
-            >
-              <IconHeart size={17} />
-              {wishlistCount > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: -2,
-                  right: -2,
-                  background: 'var(--monada-terracotta)',
-                  color: '#FFFFFF',
-                  width: 17,
-                  height: 17,
-                  borderRadius: '50%',
-                  fontSize: 9,
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '2px solid var(--theme-bg)',
-                }}>
-                  {wishlistCount}
-                </span>
-              )}
-            </button>
 
             {/* Bag */}
             <button
@@ -657,7 +609,6 @@ export default function StorePage({
                 config={config}
                 lang={lang}
                 onTap={() => onProductTap(product)}
-                onFavoriteTap={() => onFavoriteTap(product)}
               />
             ))}
           </div>
@@ -832,25 +783,6 @@ export default function StorePage({
         </button>
 
         <button
-          onClick={onWishlistTap}
-          style={{
-            background: 'transparent',
-            color: '#FFFFFF',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-            cursor: 'pointer',
-            fontSize: 10,
-            fontWeight: 500,
-            position: 'relative',
-          }}
-        >
-          <IconHeart size={18} />
-          <span>{t.navSaved} ({wishlistCount})</span>
-        </button>
-
-        <button
           onClick={onCartTap}
           style={{
             background: 'transparent',
@@ -877,13 +809,11 @@ function ProductCard({
   config,
   lang,
   onTap,
-  onFavoriteTap,
 }: {
   product: ClothingProduct;
   config: StoreConfig;
   lang: Language;
   onTap: () => void;
-  onFavoriteTap: () => void;
 }) {
   const bsPrice = (product.price * config.bcvRate).toLocaleString('es-VE', {
     minimumFractionDigits: 2,
@@ -996,38 +926,6 @@ function ProductCard({
             {categoryLabel(primaryCategory, lang)}
           </span>
         )}
-
-        {/* Favorite Heart Button */}
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            onFavoriteTap();
-          }}
-          style={{
-            position: 'absolute',
-            top: 10,
-            right: 10,
-            width: 36,
-            height: 36,
-            borderRadius: '50%',
-            background: 'rgba(255, 255, 255, 0.88)',
-            backdropFilter: 'blur(6px)',
-            border: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'transform 0.15s ease',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
-          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-        >
-          <IconHeart
-            size={16}
-            fill={product.isFavorite ? 'var(--monada-danger)' : 'none'}
-            style={{ color: product.isFavorite ? 'var(--monada-danger)' : '#7E7E84' }}
-          />
-        </button>
       </div>
 
       {/* Info Content */}

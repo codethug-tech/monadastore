@@ -5,7 +5,7 @@ import { StoreConfig } from '../config/storeConfig';
 import { categoryLabel, isKnownCategory } from '../config/categories';
 import { buildWaLink } from '../lib/phone';
 import { useIsMobile } from '../lib/useIsMobile';
-import { IconArrowLeft, IconHeart, IconWhatsApp, IconBag, IconRuler, IconStar } from './Icons';
+import { IconArrowLeft, IconWhatsApp, IconBag, IconRuler, IconStar } from './Icons';
 
 interface DetailPageProps {
   product: ClothingProduct;
@@ -13,7 +13,6 @@ interface DetailPageProps {
   config: StoreConfig;
   onBack: () => void;
   onAddToCart: (product: ClothingProduct, selectedSize: string, selectedColor: string) => void;
-  onFavoriteTap: () => void;
   onOpenSizeGuide: () => void;
 }
 
@@ -23,7 +22,6 @@ export default function DetailPage({
   config,
   onBack,
   onAddToCart,
-  onFavoriteTap,
   onOpenSizeGuide,
 }: DetailPageProps) {
   const t = translations[lang];
@@ -38,7 +36,6 @@ export default function DetailPage({
   })();
 
   const [selectedImage, setSelectedImage] = useState(images[0] ?? '');
-  const [isFavorite, setIsFavorite] = useState(product.isFavorite);
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || product.size);
   const [selectedColor, setSelectedColor] = useState(product.colors?.[0]?.name || 'Standard');
 
@@ -55,11 +52,6 @@ export default function DetailPage({
   };
 
   const primaryCategory = (product.categories ?? []).find(c => isKnownCategory(c));
-
-  const handleFavorite = () => {
-    setIsFavorite(f => !f);
-    onFavoriteTap();
-  };
 
   const bsPrice = (product.price * config.bcvRate).toLocaleString('es-VE', {
     minimumFractionDigits: 2,
@@ -128,29 +120,7 @@ export default function DetailPage({
           }}
         />
 
-        <button
-          onClick={handleFavorite}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: '50%',
-            background: 'var(--theme-surface)',
-            border: '1px solid var(--theme-line)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'transform 0.15s ease',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
-          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-        >
-          <IconHeart
-            size={18}
-            fill={isFavorite ? 'var(--monada-danger)' : 'none'}
-            style={{ color: isFavorite ? 'var(--monada-danger)' : 'var(--theme-muted)' }}
-          />
-        </button>
+        <div />
       </div>
 
       {/* Main Content Layout */}
