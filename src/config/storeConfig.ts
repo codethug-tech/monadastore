@@ -12,8 +12,10 @@ export interface StoreConfig {
 export const DEFAULT_STORE_CONFIG: StoreConfig = {
   storeName: 'Monada Store',
   whatsappNumber: '584120000000', // Owner's WhatsApp (58 + phone without +)
-  instagramUrl: 'https://instagram.com/monadastore',
-  tiktokUrl: 'https://tiktok.com/@monadastore',
+  // Empty by default: a made-up handle would ship a link to someone else's
+  // profile. The storefront hides the icon until the owner sets a real one.
+  instagramUrl: '',
+  tiktokUrl: '',
   bcvRate: 0, // Filled automatically from the official BCV feed (src/lib/bcv.ts)
   showBsRate: true,
   currency: 'USD',

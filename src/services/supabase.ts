@@ -173,9 +173,10 @@ export async function saveProducts(products: ClothingProduct[]): Promise<boolean
   if (!client) return true;
   if (products.length === 0) return true;
 
-  const { error } = await client
+  const { data, error, count } = await client
     .from('products')
-    .upsert(products.map(productToRow), { onConflict: 'id' });
+    .upsert(products.map(productToRow), { onConflict: 'id', count: 'exact' })
+    .select('id');
   if (error) {
     console.warn('[supabase] saveProducts failed:', error.message, error.code);
     if (error.code === '42501') {
@@ -186,6 +187,12 @@ export async function saveProducts(products: ClothingProduct[]): Promise<boolean
     }
     return false;
   }
+
+  // A blocked write can come back as HTTP 200 with zero affected rows.
+  if ((count ?? data?.length ?? 0) === 0) {
+    console.warn('[supabase] saveProducts wrote 0 rows; the admin session is missing.');
+    return false;
+  }
   return true;
 }
 
@@ -193,9 +200,17 @@ export async function saveProducts(products: ClothingProduct[]): Promise<boolean
 export async function deleteProduct(id: number): Promise<boolean> {
   const client = getSupabaseClient();
   if (!client) return true;
-  const { error } = await client.from('products').delete().eq('id', id);
+  const { data, error, count } = await client
+    .from('products')
+    .delete()
+    .eq('id', id)
+    .select('id');
   if (error) {
     console.warn('[supabase] deleteProduct failed:', error.message);
+    return false;
+  }
+  if ((count ?? data?.length ?? 0) === 0) {
+    console.warn('[supabase] deleteProduct removed 0 rows; the admin session is missing.');
     return false;
   }
   return true;
@@ -236,24 +251,44 @@ export async function fetchStoreSettings(): Promise<Partial<StoreConfig> | null>
 export async function saveStoreSettings(config: StoreConfig): Promise<boolean> {
   const client = getSupabaseClient();
   if (!client) return true;
-  const { error } = await client.from('store_settings').upsert(
-    {
-      id: 1,
-      store_name: config.storeName,
-      whatsapp_number: config.whatsappNumber,
-      instagram_url: config.instagramUrl,
-      tiktok_url: config.tiktokUrl,
-      currency: config.currency,
-      bcv_rate: config.bcvRate,
-      show_bs_rate: config.showBsRate,
-      free_delivery_threshold: config.freeDeliveryThreshold,
-    },
-    { onConflict: 'id' }
-  );
+
+  const row = {
+    id: 1,
+    store_name: config.storeName,
+    whatsapp_number: config.whatsappNumber,
+    instagram_url: config.instagramUrl,
+    tiktok_url: config.tiktokUrl,
+    currency: config.currency,
+    bcv_rate: config.bcvRate,
+    show_bs_rate: config.showBsRate,
+    free_delivery_threshold: config.freeDeliveryThreshold,
+  };
+
+  // PostgREST reports an UPDATE that RLS silently filtered out as HTTP 200 with
+  // zero affected rows and NO error. Checking only `error` therefore claimed
+  // success for a write that changed nothing, which is exactly how a new
+  // WhatsApp number appeared to save and never reached the database.
+  const { data, error, count } = await client
+    .from('store_settings')
+    .upsert(row, { onConflict: 'id', count: 'exact' })
+    .select('id');
+
   if (error) {
-    console.warn('[supabase] saveStoreSettings failed:', error.message);
+    console.warn('[supabase] saveStoreSettings failed:', error.message, error.code);
+    if (error.code === '42501') {
+      console.warn('[supabase] RLS rejected the settings write: sign in as admin again.');
+    }
     return false;
   }
+
+  const affected = count ?? data?.length ?? 0;
+  if (affected === 0) {
+    console.warn(
+      '[supabase] saveStoreSettings wrote 0 rows. The admin session is missing or RLS blocked it.'
+    );
+    return false;
+  }
+
   return true;
 }
 

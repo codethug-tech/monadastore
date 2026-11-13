@@ -276,26 +276,46 @@ function App() {
     };
   }, []);
 
-  // Persist config changes (localStorage always, Supabase when configured)
+  // Persist config changes (localStorage always, Supabase when configured).
+  //
+  // Success is only claimed once the database write actually lands, because a
+  // blocked write used to return HTTP 200 and look identical to a real one.
   const handleSaveConfig = (updated: StoreConfig) => {
     setConfig(updated);
-    localStorage.setItem('monada_store_config', JSON.stringify(updated));
+    try {
+      localStorage.setItem('monada_store_config', JSON.stringify(updated));
+    } catch {
+      /* quota: the in-memory config is still correct */
+    }
+
+    if (!readSupabaseConfig().isConnected) {
+      showToast(
+        lang === 'es' ? 'Ajustes guardados' : 'Settings saved',
+        `${lang === 'es' ? 'Solo en este navegador' : 'This browser only'} · WhatsApp: ${updated.whatsappNumber}`
+      );
+      return;
+    }
+
     showToast(
-      lang === 'es' ? 'Ajustes guardados' : 'Settings saved',
+      lang === 'es' ? 'Guardando ajustes…' : 'Saving settings…',
       `WhatsApp: ${updated.whatsappNumber}`
     );
-    if (readSupabaseConfig().isConnected) {
-      saveStoreSettings(updated).then(ok => {
-        if (!ok) {
-          showToast(
-            lang === 'es' ? 'Guardado localmente' : 'Saved locally',
-            lang === 'es'
-              ? 'Supabase rechazó el cambio. Revisa las credenciales.'
-              : 'Supabase rejected the write. Check your credentials.'
-          );
-        }
-      });
-    }
+
+    saveStoreSettings(updated).then(ok => {
+      if (ok) {
+        showToast(
+          lang === 'es' ? 'Ajustes publicados' : 'Settings published',
+          `${lang === 'es' ? 'Visible en todos los dispositivos' : 'Visible on every device'} · WhatsApp: ${updated.whatsappNumber}`
+        );
+      } else {
+        showToast(
+          lang === 'es' ? 'No se publicó' : 'Not published',
+          lang === 'es'
+            ? 'Solo en este navegador. Inicia sesión de nuevo en Admin y vuelve a guardar.'
+            : 'This browser only. Sign in to Admin again and re-save.'
+        );
+      }
+    });
   };
 
   // Persist products changes.

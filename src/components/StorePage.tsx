@@ -9,6 +9,7 @@ import {
   isKnownCategory,
 } from '../config/categories';
 import { buildWaLink, isWhatsAppConfigured } from '../lib/phone';
+import { isUsableSocialUrl } from '../lib/social';
 import { useIsMobile } from '../lib/useIsMobile';
 import {
   IconSearch,
@@ -285,7 +286,7 @@ export default function StorePage({
           {/* Right Actions: Socials & Bag */}
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 8, flexShrink: 0 }}>
             {/* Instagram Link — hidden on mobile to keep the header on one line */}
-            {config.instagramUrl && !isMobile && (
+            {isUsableSocialUrl(config.instagramUrl) && !isMobile && (
               <a
                 href={config.instagramUrl}
                 target="_blank"
@@ -640,7 +641,7 @@ export default function StorePage({
 
           {/* Social Icons Row */}
           <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-            {config.instagramUrl && (
+            {isUsableSocialUrl(config.instagramUrl) && (
               <a
                 href={config.instagramUrl}
                 target="_blank"
@@ -663,7 +664,7 @@ export default function StorePage({
               </a>
             )}
 
-            {config.tiktokUrl && (
+            {isUsableSocialUrl(config.tiktokUrl) && (
               <a
                 href={config.tiktokUrl}
                 target="_blank"

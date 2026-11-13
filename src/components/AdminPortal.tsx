@@ -3,6 +3,7 @@ import { ClothingProduct } from '../types';
 import { StoreConfig } from '../config/storeConfig';
 import { Language } from '../i18n/translations';
 import { fetchBcvRate } from '../lib/bcv';
+import { normalizeSocial } from '../lib/social';
 import {
   SUPABASE_SQL_SCHEMA,
   readSupabaseConfig,
@@ -180,6 +181,9 @@ export default function AdminPortal({
   const waStatus = normalizeWhatsApp(whatsapp);
   const [instagram, setInstagram] = useState(config.instagramUrl);
   const [tiktok, setTiktok] = useState(config.tiktokUrl);
+  // Normalise as the owner types, so they see the exact link customers get.
+  const igStatus = normalizeSocial(instagram, 'instagram');
+  const ttStatus = normalizeSocial(tiktok, 'tiktok');
   const [bcvRate, setBcvRate] = useState(String(config.bcvRate));
   const [bcvBusy, setBcvBusy] = useState(false);
   const [bcvNotice, setBcvNotice] = useState('');
@@ -195,6 +199,26 @@ export default function AdminPortal({
 
   // Inline validation (replaces alert())
   const [formError, setFormError] = useState('');
+
+  // Reflect externally-saved settings (and the auto BCV rate) back into the form,
+  // so the inputs never disagree with what the store is actually using.
+  useEffect(() => {
+    setStoreName(config.storeName);
+    setWhatsapp(config.whatsappNumber);
+    setInstagram(config.instagramUrl);
+    setTiktok(config.tiktokUrl);
+    setBcvRate(config.bcvRate > 0 ? String(config.bcvRate) : '');
+    setShowBsRate(config.showBsRate);
+    setFreeDelivery(String(config.freeDeliveryThreshold));
+  }, [
+    config.storeName,
+    config.whatsappNumber,
+    config.instagramUrl,
+    config.tiktokUrl,
+    config.bcvRate,
+    config.showBsRate,
+    config.freeDeliveryThreshold,
+  ]);
 
   // Editing Product State
   const [editingProduct, setEditingProduct] = useState<ClothingProduct | null>(null);
@@ -299,13 +323,23 @@ export default function AdminPortal({
       );
       return;
     }
+    if (!igStatus.valid) {
+      setFormError(
+        isEs ? `Instagram: ${igStatus.error}` : `Instagram: ${igStatus.error}`
+      );
+      return;
+    }
+    if (!ttStatus.valid) {
+      setFormError(isEs ? `TikTok: ${ttStatus.error}` : `TikTok: ${ttStatus.error}`);
+      return;
+    }
     setFormError('');
     onSaveConfig({
       ...config,
       storeName: storeName.trim() || 'Monada Store',
       whatsappNumber: waStatus.digits,
-      instagramUrl: instagram.trim(),
-      tiktokUrl: tiktok.trim(),
+      instagramUrl: igStatus.url,
+      tiktokUrl: ttStatus.url,
       bcvRate: rate,
       showBsRate,
       freeDeliveryThreshold: threshold,
@@ -2349,17 +2383,24 @@ export default function AdminPortal({
                         type="text"
                         value={instagram}
                         onChange={e => setInstagram(e.target.value)}
-                        placeholder="https://instagram.com/monadastore"
+                        placeholder="@monadastore or full URL"
                         style={{
                           width: '100%',
                           padding: '10px 14px',
                           borderRadius: 10,
-                          border: '1px solid var(--theme-line)',
+                          border: `1px solid ${igStatus.valid ? 'var(--theme-line)' : 'var(--monada-danger)'}`,
                           background: 'var(--theme-bg)',
                           color: 'var(--theme-ink)',
                           fontSize: 12,
                         }}
                       />
+                      <span style={{ fontSize: 10.5, marginTop: 4, display: 'block', color: igStatus.valid ? 'var(--theme-muted)' : 'var(--monada-danger)' }}>
+                        {igStatus.valid
+                          ? (igStatus.url
+                              ? (isEs ? `Enlace: ${igStatus.url}` : `Link: ${igStatus.url}`)
+                              : (isEs ? 'Déjalo vacío para ocultar el ícono.' : 'Leave empty to hide the icon.'))
+                          : igStatus.error}
+                      </span>
                     </div>
 
                     <div>
@@ -2371,17 +2412,24 @@ export default function AdminPortal({
                         type="text"
                         value={tiktok}
                         onChange={e => setTiktok(e.target.value)}
-                        placeholder="https://tiktok.com/@monadastore"
+                        placeholder="@monadastore or full URL"
                         style={{
                           width: '100%',
                           padding: '10px 14px',
                           borderRadius: 10,
-                          border: '1px solid var(--theme-line)',
+                          border: `1px solid ${ttStatus.valid ? 'var(--theme-line)' : 'var(--monada-danger)'}`,
                           background: 'var(--theme-bg)',
                           color: 'var(--theme-ink)',
                           fontSize: 12,
                         }}
                       />
+                      <span style={{ fontSize: 10.5, marginTop: 4, display: 'block', color: ttStatus.valid ? 'var(--theme-muted)' : 'var(--monada-danger)' }}>
+                        {ttStatus.valid
+                          ? (ttStatus.url
+                              ? (isEs ? `Enlace: ${ttStatus.url}` : `Link: ${ttStatus.url}`)
+                              : (isEs ? 'Déjalo vacío para ocultar el ícono.' : 'Leave empty to hide the icon.'))
+                          : ttStatus.error}
+                      </span>
                     </div>
                   </div>
 
