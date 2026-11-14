@@ -19,6 +19,7 @@ import CartPage from './components/CartPage';
 import CheckoutModal from './components/CheckoutModal';
 import SizeGuideModal from './components/SizeGuideModal';
 import AdminPortal from './components/AdminPortal';
+import { resolveProductsUpdate, type ProductsUpdate } from './lib/catalog';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
 
 type Page = 'store' | 'detail' | 'cart';
@@ -344,7 +345,11 @@ function App() {
   // The toast must not claim success before the database write resolves: that
   // is what hid a rejected write behind a product that only existed in
   // localStorage, so it showed on the device that made it and nowhere else.
-  const handleSaveProducts = (updated: ClothingProduct[]) => {
+  const handleSaveProducts = (update: ProductsUpdate) => {
+    // Resolve against the ref, which always holds the newest catalog. Building
+    // the list from a captured render value lost an edit when two saves landed
+    // in quick succession.
+    const updated = resolveProductsUpdate(productsRef.current, update);
     setProducts(updated);
     let storedLocally = true;
     try {

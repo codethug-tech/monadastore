@@ -43,6 +43,7 @@ import {
 } from './Icons';
 import ImageUploader from './ImageUploader';
 import { normalizeWhatsApp } from '../lib/phone';
+import { upsertProduct, type ProductsUpdate } from '../lib/catalog';
 import { CATEGORIES, CATEGORY_GROUPS, categoryLabel } from '../config/categories';
 import {
   getAdminSession,
@@ -58,7 +59,12 @@ interface AdminPortalProps {  isOpen: boolean;
   config: StoreConfig;
   onSaveConfig: (updated: StoreConfig) => void;
   products: ClothingProduct[];
-  onSaveProducts: (updated: ClothingProduct[]) => void;
+  /**
+   * Applies a change to the catalog. Takes an updater so the new list is always
+   * built from the latest products, not from a possibly stale `products` prop:
+   * two saves in quick succession used to lose the first one.
+   */
+  onSaveProducts: (update: ProductsUpdate) => void;
   onDeleteProduct: (id: number) => void;
   onResetProducts: () => void;
   lang: Language;
@@ -511,7 +517,7 @@ export default function AdminPortal({
       reviewCount: 1,
     };
 
-    onSaveProducts([newProd, ...products]);
+    onSaveProducts(current => upsertProduct(current, newProd));
     setNewName('');
     setNewImageUrl('');
     setNewGallery([]);
@@ -523,7 +529,7 @@ export default function AdminPortal({
   const handleUpdateProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
-    onSaveProducts(products.map(p => p.id === editingProduct.id ? editingProduct : p));
+    onSaveProducts(current => upsertProduct(current, editingProduct));
     setEditingProduct(null);
   };
 
