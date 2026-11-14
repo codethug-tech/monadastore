@@ -31,3 +31,26 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
   currency: 'USD',
   freeDeliveryThreshold: 100,
 };
+
+/**
+ * Applies a settings patch read from the database over the config already held
+ * in the browser.
+ *
+ * A missing or NULL column arrives here as `undefined`. Spreading it directly
+ * (`{ ...prev, ...remote }`) would overwrite a good local value with `undefined`,
+ * which is how a stored second WhatsApp number vanished from the admin form and
+ * looked like the save had never happened. Only real values may win.
+ */
+export function mergeRemoteConfig(
+  prev: StoreConfig,
+  remote: Partial<StoreConfig> | null | undefined
+): StoreConfig {
+  if (!remote) return prev;
+  const patch: Partial<StoreConfig> = {};
+  for (const [key, value] of Object.entries(remote) as [keyof StoreConfig, unknown][]) {
+    if (value !== undefined && value !== null) {
+      (patch as Record<string, unknown>)[key] = value;
+    }
+  }
+  return { ...prev, ...patch };
+}

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { ClothingProduct, ClothingCartItem } from './types';
 import { clothingProducts as initialProducts } from './data/products';
 import { Language, translations } from './i18n/translations';
-import { StoreConfig, DEFAULT_STORE_CONFIG } from './config/storeConfig';
+import { StoreConfig, DEFAULT_STORE_CONFIG, mergeRemoteConfig } from './config/storeConfig';
 import { cartLineKey, itemLineKey, addLine, increaseLine, decreaseLine, removeLine, cartCount, cartSubtotal } from './lib/cart';
 import { fetchBcvRate, getCachedBcvRate } from './lib/bcv';
 import {
@@ -171,7 +171,10 @@ function App() {
 
     if (remoteSettings) {
       setConfig(prev => {
-        const merged = { ...prev, ...remoteSettings };
+        // Only fields the database actually returned may overwrite local values:
+        // a NULL column maps to undefined and used to erase a stored second
+        // number, so saved changes looked like they never arrived.
+        const merged = mergeRemoteConfig(prev, remoteSettings);
         localStorage.setItem('monada_store_config', JSON.stringify(merged));
         return merged;
       });
@@ -313,6 +316,14 @@ function App() {
         return;
       }
       if (result.ok) {
+        // Read the row back and adopt what the database really holds. If the
+        // storefront and the database ever disagree, the database wins, so the
+        // UI shows the same values every other device will get.
+        void fetchStoreSettings().then(confirmed => {
+          if (confirmed) {
+            setConfig(prev => mergeRemoteConfig(prev, confirmed));
+          }
+        });
         showToast(
           lang === 'es' ? 'Ajustes publicados' : 'Settings published',
           `${lang === 'es' ? 'Visible en todos los dispositivos' : 'Visible on every device'} · WhatsApp: ${updated.whatsappNumber}`
