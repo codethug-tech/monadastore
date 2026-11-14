@@ -1571,11 +1571,15 @@ export default function AdminPortal({
                                 fontWeight: 600,
                               }}>
                                 <IconWhatsApp size={11} />
-                                <span>
-                                  {order.assignedNumber === normalizeWhatsApp(config.whatsappNumber).digits
-                                    ? (isEs ? 'Número 1' : 'Number 1')
-                                    : (isEs ? 'Número 2' : 'Number 2')}
-                                </span>
+                                {/*
+                                  Show the number the order actually went to, not
+                                  "Number 1 / Number 2". The positional label was
+                                  computed against the *current* primary number, so
+                                  swapping the numbers relabelled old orders: one
+                                  that went to Number 1 started reading "Number 2",
+                                  which would send the follow-up to the wrong phone.
+                                */}
+                                <span>{normalizeWhatsApp(order.assignedNumber).pretty}</span>
                               </div>
                             )}
                           </div>

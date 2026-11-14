@@ -104,4 +104,27 @@ check('both numbers normalise to wa.me digits', () => {
   assert.equal(normalizeWhatsApp('0414-9876543').digits, B);
 });
 
+check('order history does not relabel when the owner swaps the two numbers', () => {
+  // The admin badge used to derive "Number 1 / Number 2" by comparing the stored
+  // number against whatever the primary was *at render time*. Swapping the two
+  // numbers in settings therefore rewrote history: an order that was placed on
+  // Number 1 started showing as Number 2, and the follow-up WhatsApp went to the
+  // wrong phone. The badge now prints the stored number itself, so the label is a
+  // pure function of what was recorded.
+
+  const storedAtCheckout = A; // routed to the number that was primary then
+
+  // Old broken label: depends on the current config.
+  const oldLabel = (currentPrimary: string) =>
+    storedAtCheckout === currentPrimary ? 'Number 1' : 'Number 2';
+
+  // New label: depends only on the stored value.
+  const newLabel = () => normalizeWhatsApp(storedAtCheckout).pretty;
+
+  assert.equal(oldLabel(A), 'Number 1'); // correct while numbers are unchanged
+  assert.equal(oldLabel(B), 'Number 2'); // WRONG after a swap: history rewritten
+  assert.equal(newLabel(), '+58 412 123 4567');
+  assert.equal(newLabel(), newLabel()); // never changes with config
+});
+
 console.log(`\n${pass} assertions passed`);
