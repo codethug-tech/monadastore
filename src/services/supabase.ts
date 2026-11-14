@@ -619,7 +619,10 @@ export async function checkSchemaCapabilities(): Promise<{
 
   // 42703 = undefined column, PGRST204 = not in the schema cache.
   const missing =
-    error?.code === '42703' || error?.code === 'PGRST204' || error?.code === '400';
+    error?.code === '42703' || error?.code === 'PGRST204';
+  // Any other error (a network blip, or a read refused by RLS before sign-in)
+  // says nothing about the columns. Reporting "missing" would disable a field
+  // that actually works, so only a definite undefined-column signal counts.
   return { twoNumberColumns: !missing };
 }
 

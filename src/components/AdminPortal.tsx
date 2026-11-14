@@ -402,8 +402,10 @@ export default function AdminPortal({
       showBsRate,
       freeDeliveryThreshold: threshold,
     });
-    setSettingsNotice(isEs ? 'Ajustes guardados correctamente' : 'Settings updated successfully');
-    setTimeout(() => setSettingsNotice(''), 2500);
+    // Do NOT claim success here. The database write happens in onSaveConfig and
+    // can still fail; saying "saved" before it resolves is exactly what made a
+    // rejected write look like it worked and then never appear on the storefront.
+    setFormError('');
   };
 
   const loadOrders = async () => {
